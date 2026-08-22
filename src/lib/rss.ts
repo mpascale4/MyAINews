@@ -26,6 +26,42 @@ const parser = new Parser({
   }
 });
 
+/**
+ * Decodes an HTTP response body respecting the charset declared either in the
+ * Content-Type header or in the XML/HTML prologue (<?xml ... encoding="...">
+ * or <meta charset="...">). fetch()'s response.text() always assumes UTF-8,
+ * which corrupts accented characters (mojibake, e.g. "riuscir�") for feeds
+ * served in ISO-8859-1/Windows-1252, common among Italian news sites.
+ */
+async function decodeResponseText(response: Response): Promise<string> {
+  const buffer = Buffer.from(await response.arrayBuffer());
+
+  let charset = "";
+  const contentType = response.headers.get("content-type") || "";
+  const headerMatch = contentType.match(/charset=([^;]+)/i);
+  if (headerMatch) charset = headerMatch[1].trim().toLowerCase();
+
+  if (!charset) {
+    // Sniff the declared encoding from the first bytes (XML prologue or HTML meta tag)
+    const head = buffer.slice(0, 512).toString("ascii");
+    const xmlMatch = head.match(/<\?xml[^>]*encoding=["']([^"']+)["']/i);
+    const metaMatch = head.match(/<meta[^>]*charset=["']?([a-z0-9\-_]+)/i);
+    if (xmlMatch) charset = xmlMatch[1].trim().toLowerCase();
+    else if (metaMatch) charset = metaMatch[1].trim().toLowerCase();
+  }
+
+  if (charset && charset !== "utf-8" && charset !== "utf8") {
+    try {
+      return new TextDecoder(charset).decode(buffer);
+    } catch (e) {
+      // Unsupported/unknown label, fall through to UTF-8
+    }
+  }
+
+  return buffer.toString("utf-8");
+}
+
+
 function extractImageUrl(item: any): string | null {
   if (item.mediaContent && item.mediaContent.length > 0) {
     return item.mediaContent[0]['$']?.url || null;
@@ -127,7 +163,7 @@ async function fetchFeedWithFallback(originalUrl: string, feedName: string): Pro
         clearTimeout(timeoutId);
 
         if (response.ok) {
-          xmlText = await response.text();
+          xmlText = await decodeResponseText(response);
           if (xmlText.trim().length > 100 && !xmlText.trim().startsWith('<!DOCTYPE html') && !xmlText.trim().startsWith('<html')) {
             success = true;
           }
@@ -183,7 +219,7 @@ export async function testFeedUrl(url: string): Promise<{
       const response = await fetch(url, { headers: DEFAULT_HEADERS, signal: controller.signal });
       clearTimeout(timeoutId);
       if (response.ok) {
-        text = await response.text();
+        text = await decodeResponseText(response);
       }
     } catch (e) {}
 
@@ -253,7 +289,7 @@ async function fetchHtmlWithFallback(url: string): Promise<string> {
       });
 
       if (response.ok) {
-        responseText = await response.text();
+        responseText = await decodeResponseText(response);
         if (responseText.length > 500) {
           fetchSuccess = true;
         }
