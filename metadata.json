@@ -1,0 +1,8 @@
+{
+  "name": "MyNewsAI",
+  "description": "Aggregatore di notizie AI con punteggio di rilevanza personalizzato.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
