@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "prompt",
+        "prompt": "Print the project's shortcut recap table as defined in .github/copilot-instructions.md (Copilot Session-Start Shortcut Recap section), one line per shortcut, then wait for my next request."
+      }
+    ]
+  }
+}

@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Article } from "../types";
+import { getSourceAccent, getSourceInitial, getSourceFaviconUrl } from "../lib/sourceStyle";
 import { 
   ExternalLink, 
   CheckCircle, 
@@ -46,9 +47,13 @@ export default function ArticleCardItem({
   // Swipe State
   const [offsetX, setOffsetX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [faviconFailed, setFaviconFailed] = useState(false);
   const startXRef = useRef(0);
   const startYRef = useRef(0);
   const isHorizontalGesture = useRef<boolean | null>(null);
+
+  const sourceAccent = getSourceAccent(article.source);
+  const faviconUrl = getSourceFaviconUrl(article.link);
 
   const SWIPE_THRESHOLD = 80; // Distance in px to trigger action on release
 
@@ -166,30 +171,29 @@ export default function ArticleCardItem({
             : "border-slate-200 dark:border-slate-800"
         }`}
       >
-        {article.imageUrl && (
-          <a
-            href={article.link}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => onToggleRead(article)}
-            className="h-48 overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 block cursor-pointer group/img"
-            title="Apri notizia originale"
-          >
-            <img 
-              src={article.imageUrl} 
-              alt={article.title} 
-              className="w-full h-full object-cover pointer-events-none transition-transform duration-300 group-hover/img:scale-105" 
-              loading="lazy"
-            />
-          </a>
-        )}
-        
         <div className="p-5 flex flex-col flex-1">
           {/* Header Row: Source, Date, Bookmark & Share */}
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mr-2">
-              {article.source}
-            </span>
+            <div className="flex items-center gap-2 min-w-0 mr-2">
+              <span
+                className="w-5 h-5 flex items-center justify-center shrink-0"
+                aria-hidden="true"
+              >
+                {faviconUrl && !faviconFailed ? (
+                  <img
+                    src={faviconUrl}
+                    alt=""
+                    className="w-full h-full object-contain"
+                    onError={() => setFaviconFailed(true)}
+                  />
+                ) : (
+                  <span className={`text-[11px] font-black ${sourceAccent.text}`}>{getSourceInitial(article.source)}</span>
+                )}
+              </span>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                {article.source}
+              </span>
+            </div>
             <div className="flex items-center gap-1 shrink-0">
               <span className="text-xs text-slate-400 dark:text-slate-500 mr-1">
                 {article.pubDate ? format(new Date(article.pubDate), "d MMM, HH:mm", { locale: it }) : ''}

@@ -2,7 +2,8 @@ import Parser from "rss-parser";
 import { db } from "../db";
 import { articles, rssFeeds, interests } from "../db/schema";
 import { eq, inArray, like, sql } from "drizzle-orm";
-import { processArticleWithAI, scrapeArticlesWithAI } from "./gemini";
+import { processArticleWithAI, scrapeArticlesWithAI, generateScraperConfig } from "./gemini";
+import { applyScraperConfig, type ScraperConfig, type ScrapedArticle } from "./scraper";
 
 import { extractDefaultTags } from "./tagExtractor";
 
@@ -222,6 +223,157 @@ export async function testFeedUrl(url: string): Promise<{
   }
 }
 
+/**
+ * Robust HTML fetch (node fetch with http/https fallback + system curl fallback),
+ * used both by the AI-based scraper and by the ad-hoc CSS-selector scraper.
+ */
+async function fetchHtmlWithFallback(url: string): Promise<string> {
+  const protocols = [url];
+  if (url.startsWith('https')) {
+    protocols.push(url.replace('https://', 'http://'));
+  }
+
+  let lastError = null;
+
+  for (const targetUrl of protocols) {
+    let responseText = "";
+    let fetchSuccess = false;
+
+    try {
+      if (targetUrl !== protocols[0]) {
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+
+      const response = await fetch(targetUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/127.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Cache-Control": "no-cache"
+        }
+      });
+
+      if (response.ok) {
+        responseText = await response.text();
+        if (responseText.length > 500) {
+          fetchSuccess = true;
+        }
+      } else {
+        console.warn(`Node fetch for ${targetUrl} returned status ${response.status}`);
+      }
+    } catch (e: any) {
+      lastError = e;
+      console.warn(`Node fetch failed for ${targetUrl}: ${e.message}`);
+    }
+
+    if (!fetchSuccess) {
+      try {
+        const { execSync } = await import('child_process');
+        const problematicSites = ['gazzettadilucca.it', 'loschermo.it', 'toscanagol.it'];
+        const isVeryProblematic = problematicSites.some(site => targetUrl.includes(site));
+
+        console.log(`Attempting system curl for ${targetUrl} (insecure mode)...`);
+        const timeout = isVeryProblematic ? 10 : 20;
+        const cmd = `curl -k -L -s -m ${timeout} -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/127.0.0.0 Safari/537.36" "${targetUrl}"`;
+
+        try {
+          const output = execSync(cmd, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 2 });
+          if (output && output.length > 500) {
+            console.log(`System curl success for ${targetUrl} (${output.length} bytes)`);
+            return output;
+          }
+        } catch (e) {
+          console.warn(`Curl execution failed for ${targetUrl} (likely timeout or block)`);
+        }
+      } catch (curlErr: any) {
+        lastError = curlErr;
+      }
+    } else {
+      return responseText;
+    }
+  }
+  throw lastError || new Error("All fetch methods failed");
+}
+
+/**
+ * Ad-hoc scraper strategy for a source whose RSS feed is empty/unavailable.
+ *
+ * 1. If the feed already has a saved ScraperConfig (CSS selectors), apply it
+ *    with cheerio (no AI call). This is the cheap, reusable path.
+ * 2. If there's no saved config, or the saved one now yields 0 articles
+ *    (self-healing: the site layout probably changed), ask the AI to
+ *    (re)generate a ScraperConfig from the current HTML and persist it.
+ * 3. If a working config still can't be produced, fall back to the generic
+ *    one-shot AI scraper (scrapeArticlesWithAI) so we still get articles this
+ *    cycle, without saving any reusable config.
+ */
+async function scrapeSourceWithAdHocTransformer(feed: { id: number; url: string; name: string; scraperConfig: ScraperConfig | null }): Promise<ScrapedArticle[] | any[]> {
+  const html = await fetchHtmlWithFallback(feed.url);
+  console.log(`Fetched ${html.length} bytes of HTML for ${feed.name}`);
+
+  if (feed.scraperConfig) {
+    try {
+      const items = applyScraperConfig(html, feed.url, feed.scraperConfig);
+      if (items.length > 0) {
+        console.log(`Extracted ${items.length} items for ${feed.name} via saved ad-hoc transformer`);
+        return items;
+      }
+      console.log(`Saved ad-hoc transformer for ${feed.name} returned 0 articles, regenerating (self-healing)...`);
+    } catch (e: any) {
+      console.warn(`Saved ad-hoc transformer failed for ${feed.name}, regenerating:`, e.message || e);
+    }
+  }
+
+  const cleanedHtml = cleanHtmlForAI(html);
+  const newConfig = await generateScraperConfig(feed.url, cleanedHtml, feed.name);
+  if (newConfig) {
+    try {
+      const items = applyScraperConfig(html, feed.url, newConfig);
+      if (items.length > 0) {
+        await db.update(rssFeeds).set({ scraperConfig: newConfig, scraperFailCount: 0 }).where(eq(rssFeeds.id, feed.id));
+        console.log(`Generated and saved new ad-hoc transformer for ${feed.name} (${items.length} items)`);
+        return items;
+      }
+    } catch (e: any) {
+      console.warn(`Newly generated ad-hoc transformer failed for ${feed.name}:`, e.message || e);
+    }
+  }
+
+  // Last resort: generic one-shot AI extraction, without a reusable config.
+  console.log(`Falling back to generic AI scraper for ${feed.name}...`);
+  await db.update(rssFeeds).set({ scraperFailCount: sql`${rssFeeds.scraperFailCount} + 1` }).where(eq(rssFeeds.id, feed.id));
+  return await scrapeArticlesWithAI(feed.url, cleanedHtml, feed.name);
+}
+
+/**
+ * Tries to set up an ad-hoc scraper config right when a new source is added,
+ * if its RSS feed turns out to be invalid but its HTML is scrapeable.
+ * Safe to call in the background (fire-and-forget); failures are only logged.
+ */
+export async function ensureScraperConfigForFeed(feedId: number, url: string, sourceName: string): Promise<void> {
+  try {
+    const parsedFeed = await fetchFeedWithFallback(url, sourceName);
+    if (parsedFeed) return; // Valid RSS, no ad-hoc transformer needed.
+
+    const html = await fetchHtmlWithFallback(url);
+    const trimmed = html.trim();
+    if (!trimmed || (!trimmed.startsWith('<!DOCTYPE html') && !trimmed.startsWith('<html') && !trimmed.toLowerCase().includes('<html'))) {
+      return; // Not scrapeable HTML either.
+    }
+
+    const cleanedHtml = cleanHtmlForAI(html);
+    const config = await generateScraperConfig(url, cleanedHtml, sourceName);
+    if (!config) return;
+
+    const items = applyScraperConfig(html, url, config);
+    if (items.length > 0) {
+      await db.update(rssFeeds).set({ scraperConfig: config, scraperFailCount: 0 }).where(eq(rssFeeds.id, feedId));
+      console.log(`Ad-hoc transformer created at source creation time for ${sourceName} (${items.length} items)`);
+    }
+  } catch (e: any) {
+    console.warn(`Could not create ad-hoc transformer for ${sourceName}:`, e.message || e);
+  }
+}
+
 function calculateFastRelevance(title: string, content: string, tags: string[], userInterests: { keyword: string, type: string, weight: number }[]): number {
   if (!userInterests || userInterests.length === 0) return 50;
   
@@ -277,105 +429,32 @@ export async function fetchAllFeeds() {
         items = (parsedFeed.items || []).slice(0, 50);
         console.log(`Found ${items.length} items for ${feed.name} via RSS`);
       } else {
-        // AI Fallback: try to scrape the page directly
-        // We only do this if it's not a known problematic site that times out consistently
+        // Ad-hoc transformer fallback: try to scrape the page directly.
+        // We only skip this if it's a known problematic site that times out consistently.
         const problematicSites = ['gazzettadilucca.it', 'loschermo.it', 'toscanagol.it'];
         const isVeryProblematic = problematicSites.some(site => feed.url.includes(site));
-        
+
         if (isVeryProblematic) {
           console.log(`RSS failed for ${feed.name}. Skipping direct scraper fallback as site is currently unreachable.`);
-          continue; 
+          continue;
         }
 
-        console.log(`RSS failed for ${feed.name}, trying AI Scraper fallback...`);
+        console.log(`RSS failed for ${feed.name}, trying ad-hoc HTML transformer fallback...`);
         try {
-          // Robust fetch for AI scraping using node fetch with a system curl fallback
-            const fetchWithFallback = async (url: string): Promise<string> => {
-            const protocols = [url];
-            if (url.startsWith('https')) {
-              protocols.push(url.replace('https://', 'http://'));
-            }
-            
-            let lastError = null;
-
-            for (const targetUrl of protocols) {
-              let responseText = "";
-              let fetchSuccess = false;
-
-              try {
-                // Wait briefly before retrying
-                if (targetUrl !== protocols[0]) {
-                  await new Promise(resolve => setTimeout(resolve, 800));
-                }
-
-                const response = await fetch(targetUrl, { 
-                  headers: {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/127.0.0.0 Safari/537.36",
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                    "Cache-Control": "no-cache"
-                  }
-                });
-
-                if (response.ok) {
-                  responseText = await response.text();
-                  if (responseText.length > 500) {
-                    fetchSuccess = true;
-                  }
-                } else {
-                  console.warn(`Node fetch for ${targetUrl} returned status ${response.status}`);
-                }
-              } catch (e: any) {
-                lastError = e;
-                console.warn(`Node fetch failed for ${targetUrl}: ${e.message}`);
-              }
-
-              // If node fetch failed or returned bad status, try system curl
-              if (!fetchSuccess) {
-                try {
-                  const { execSync } = await import('child_process');
-                  const problematicSites = ['gazzettadilucca.it', 'loschermo.it', 'toscanagol.it'];
-                  const isVeryProblematic = problematicSites.some(site => targetUrl.includes(site));
-                  
-                  // If it's a known blocker and we are not using a proxy, it will likely timeout
-                  // We still try but with a shorter timeout and silent error
-                  console.log(`Attempting system curl for ${targetUrl} (insecure mode)...`);
-                  const timeout = isVeryProblematic ? 10 : 20;
-                  const cmd = `curl -k -L -s -m ${timeout} -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/127.0.0.0 Safari/537.36" "${targetUrl}"`;
-                  
-                  try {
-                    const output = execSync(cmd, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 2 });
-                    if (output && output.length > 500) {
-                      console.log(`System curl success for ${targetUrl} (${output.length} bytes)`);
-                      return output;
-                    }
-                  } catch (e) {
-                    // Silent catch for the execSync itself
-                    console.warn(`Curl execution failed for ${targetUrl} (likely timeout or block)`);
-                  }
-                } catch (curlErr: any) {
-                  lastError = curlErr;
-                }
-              } else {
-                return responseText;
-              }
-            }
-            throw lastError || new Error("All fetch methods failed");
-          };
-
-          const html = await fetchWithFallback(feed.url);
-          console.log(`Fetched ${html.length} bytes of HTML for ${feed.name}`);
-          const cleanedHtml = cleanHtmlForAI(html);
-          console.log(`Cleaned HTML for AI: ${cleanedHtml.length} bytes`);
-          
-          const aiArticles = await scrapeArticlesWithAI(feed.url, cleanedHtml, feed.name);
-          if (aiArticles && aiArticles.length > 0) {
-            items = aiArticles;
-            console.log(`Successfully extracted ${items.length} items for ${feed.name} via AI Scraper`);
+          const scrapedItems = await scrapeSourceWithAdHocTransformer({
+            id: feed.id,
+            url: feed.url,
+            name: feed.name,
+            scraperConfig: (feed.scraperConfig as ScraperConfig | null) || null,
+          });
+          if (scrapedItems && scrapedItems.length > 0) {
+            items = scrapedItems;
+            console.log(`Successfully extracted ${items.length} items for ${feed.name} via ad-hoc transformer`);
           } else {
-            console.log(`AI Scraper returned 0 articles for ${feed.name}`);
+            console.log(`Ad-hoc transformer returned 0 articles for ${feed.name}`);
           }
         } catch (scrapeErr: any) {
-          console.warn(`AI Scraper failed for ${feed.name}:`, scrapeErr.message || "Unknown error");
+          console.warn(`Ad-hoc transformer failed for ${feed.name}:`, scrapeErr.message || "Unknown error");
         }
       }
 
@@ -390,7 +469,7 @@ export async function fetchAllFeeds() {
         const guid = item.guid || item.id || item.link;
         if (!guid) continue;
         
-        const title = item.title || "No Title";
+        const title = stripHtml(item.title || "No Title").trim() || "No Title";
         const link = item.link || "";
         const normTitle = title.trim().toLowerCase().replace(/[^\w\s]/gi, '');
         const normLink = link.split('?')[0].split('#')[0].trim().toLowerCase();
@@ -402,8 +481,10 @@ export async function fetchAllFeeds() {
         
         const rawContent = item.contentEncoded || item['content:encoded'] || item.content || item.contentSnippet || "";
         const content = stripHtml(rawContent).trim();
-        const pubDate = item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString();
-        const imageUrl = extractImageUrl(item);
+        const parsedPubDate = item.pubDate ? new Date(item.pubDate) : null;
+        const pubDate = parsedPubDate && !isNaN(parsedPubDate.getTime()) ? parsedPubDate.toISOString() : new Date().toISOString();
+        // Scraped items (AI or ad-hoc transformer) already carry a resolved imageUrl; RSS items need extraction.
+        const imageUrl = item.imageUrl !== undefined ? item.imageUrl : extractImageUrl(item);
         
         const defaultTags = extractDefaultTags(title, content, feedName);
         const relevance = calculateFastRelevance(title, content, defaultTags, userInterests);
@@ -543,13 +624,7 @@ export async function seedInitialData() {
   // Check if we need to seed feeds
   try {
     const existingFeeds = await db.select().from(rssFeeds);
-    if (existingFeeds.length === 0) {
-      await db.insert(rssFeeds).values([
-        { url: "https://feeds.bbci.co.uk/news/technology/rss.xml", name: "BBC Technology" },
-        { url: "https://www.theverge.com/rss/index.xml", name: "The Verge" },
-        { url: "https://news.google.com/rss/search?q=Toscana+Cecina&hl=it&gl=IT&ceid=IT:it", name: "Google News Toscana/Cecina" }
-      ]);
-    } else {
+    if (existingFeeds.length > 0) {
       // Clean up any trailing slash on ilpost feed in existing DB records
       for (const feed of existingFeeds) {
         if (feed.url === "https://www.ilpost.it/feed/") {

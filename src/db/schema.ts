@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { ScraperConfig } from "../lib/scraper";
 
 export const articles = sqliteTable("articles", {
   id: integer("id").primaryKey(),
@@ -43,6 +44,10 @@ export const rssFeeds = sqliteTable("rss_feeds", {
   name: text("name").notNull(),
   isManual: integer("is_manual", { mode: 'boolean' }).default(false),
   shownCount: integer("shown_count").default(0),
+  // Ad-hoc HTML scraper config (CSS selectors) used as fallback when the RSS feed is empty/unavailable.
+  // Generated once by AI and reused on subsequent fetches to avoid calling the AI on every cycle.
+  scraperConfig: text("scraper_config", { mode: 'json' }).$type<ScraperConfig>(),
+  scraperFailCount: integer("scraper_fail_count").default(0),
 });
 
 export const pushSubscriptions = sqliteTable("push_subscriptions", {

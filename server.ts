@@ -3,7 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { db } from "./src/db";
 import { articles, rssFeeds, interests, userBehavior, appSettings } from "./src/db/schema";
-import { seedInitialData, fetchAllFeeds, testFeedUrl } from "./src/lib/rss";
+import { seedInitialData, fetchAllFeeds, testFeedUrl, ensureScraperConfigForFeed } from "./src/lib/rss";
 import { processArticleWithAI, generateFeedsWithAI, runProfileInterview, searchFeedsByKeyword } from "./src/lib/gemini";
 import { 
   getVapidPublicKey, 
@@ -21,7 +21,7 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json());
 
@@ -498,8 +498,17 @@ async function startServer() {
       const name = req.body.name ? req.body.name.trim() : '';
       const isManual = req.body.isManual !== undefined ? Boolean(req.body.isManual) : true;
       if (!url) return res.status(400).json({ error: "URL is required" });
-      await db.insert(rssFeeds).values({ url, name, isManual });
+      const inserted = await db.insert(rssFeeds).values({ url, name, isManual }).returning({ id: rssFeeds.id });
       res.json({ success: true });
+
+      // Fire-and-forget: if the RSS feed turns out to be invalid but the page is
+      // scrapeable, generate and save an ad-hoc HTML transformer right away.
+      const newFeedId = inserted[0]?.id;
+      if (newFeedId) {
+        ensureScraperConfigForFeed(newFeedId, url, name || url).catch((e: any) => {
+          console.warn("Background ad-hoc transformer setup failed:", e.message || e);
+        });
+      }
     } catch (err: any) {
       console.warn("Error adding feed:", err.message || err);
       res.status(500).json({ error: "Internal Server Error" });
@@ -603,7 +612,12 @@ async function startServer() {
   // Delete feed
   app.delete("/api/feeds/:id", async (req, res) => {
     try {
-      await db.delete(rssFeeds).where(eq(rssFeeds.id, parseInt(req.params.id)));
+      const feedId = parseInt(req.params.id);
+      const [feed] = await db.select().from(rssFeeds).where(eq(rssFeeds.id, feedId));
+      await db.delete(rssFeeds).where(eq(rssFeeds.id, feedId));
+      if (feed) {
+        await db.delete(articles).where(eq(articles.source, feed.name));
+      }
       res.json({ success: true });
     } catch (err: any) {
       console.error("Error deleting feed:", err);

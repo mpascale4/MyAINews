@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import type { ScraperConfig } from "./scraper";
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -293,22 +294,89 @@ Istruzioni:
   };
 }
 
+// Static, manually-verified RSS feeds for common Italian news categories, used as a
+// richer fallback when the AI (GEMINI_API_KEY) is unavailable, so common searches like
+// "sport" or "tecnologia" don't return only a single generic Google News feed.
+const CATEGORY_FEEDS: { keywords: string[]; category: string; feeds: { name: string; url: string; reason: string }[] }[] = [
+  {
+    keywords: ["sport", "calcio", "football", "basket", "tennis", "formula 1", "f1", "motori", "ciclismo"],
+    category: "Sport",
+    feeds: [
+      { name: "Gazzetta dello Sport", url: "https://www.gazzetta.it/rss/home.xml", reason: "Principale quotidiano sportivo italiano, aggiornamenti in tempo reale." },
+      { name: "Corriere dello Sport", url: "https://www.corrieredellosport.it/rss/homepage", reason: "Notizie sportive nazionali su calcio e altri sport." },
+      { name: "Tuttosport", url: "https://www.tuttosport.com/rss/home", reason: "Quotidiano sportivo, focus su calcio e motori." },
+      { name: "ANSA Sport", url: "https://www.ansa.it/sito/notizie/sport/sport_rss.xml", reason: "Notizie sportive dall'agenzia di stampa ANSA." },
+    ],
+  },
+  {
+    keywords: ["tecnologia", "tech", "informatica", "hi-tech", "hitech", "gadget", "intelligenza artificiale", "ai"],
+    category: "Tecnologia",
+    feeds: [
+      { name: "ANSA Tecnologia", url: "https://www.ansa.it/sito/notizie/tecnologia/tecnologia_rss.xml", reason: "Notizie di tecnologia e innovazione dall'agenzia ANSA." },
+    ],
+  },
+  {
+    keywords: ["economia", "finanza", "borsa", "mercati", "lavoro"],
+    category: "Economia",
+    feeds: [
+      { name: "ANSA Economia", url: "https://www.ansa.it/sito/notizie/economia/economia_rss.xml", reason: "Notizie di economia e finanza dall'agenzia ANSA." },
+    ],
+  },
+  {
+    keywords: ["cultura", "cinema", "musica", "arte", "spettacolo", "libri"],
+    category: "Cultura",
+    feeds: [
+      { name: "ANSA Cultura", url: "https://www.ansa.it/sito/notizie/cultura/cultura_rss.xml", reason: "Notizie di cultura e spettacolo dall'agenzia ANSA." },
+    ],
+  },
+  {
+    keywords: ["politica", "governo", "elezioni", "parlamento"],
+    category: "Politica",
+    feeds: [
+      { name: "ANSA Politica", url: "https://www.ansa.it/sito/notizie/politica/politica_rss.xml", reason: "Notizie di politica italiana dall'agenzia ANSA." },
+    ],
+  },
+  {
+    keywords: ["cronaca", "attualità", "attualita"],
+    category: "Cronaca",
+    feeds: [
+      { name: "ANSA Cronaca", url: "https://www.ansa.it/sito/notizie/cronaca/cronaca_rss.xml", reason: "Notizie di cronaca italiana dall'agenzia ANSA." },
+    ],
+  },
+];
+
 export async function searchFeedsByKeyword(keyword: string): Promise<AIFeedSuggestion[]> {
   const gemini = getGemini();
   const cleanKeyword = (keyword || "").trim();
   const encoded = encodeURIComponent(cleanKeyword);
+  const normalizedKeyword = cleanKeyword.toLowerCase();
 
-  const fallback: AIFeedSuggestion[] = [
-    {
-      name: `Google News: ${cleanKeyword}`,
-      url: `https://news.google.com/rss/search?q=${encoded}&hl=it&gl=IT&ceid=IT:it`,
-      reason: `Feed di ricerca Google News in tempo reale per "${cleanKeyword}".`,
-      category: "Ricerca mirata",
-      type: "rss",
-      verified: true,
-      confidence: 1.0
-    }
-  ];
+  const googleNewsFallback: AIFeedSuggestion = {
+    name: `Google News: ${cleanKeyword}`,
+    url: `https://news.google.com/rss/search?q=${encoded}&hl=it&gl=IT&ceid=IT:it`,
+    reason: `Feed di ricerca Google News in tempo reale per "${cleanKeyword}".`,
+    category: "Ricerca mirata",
+    type: "rss",
+    verified: true,
+    confidence: 1.0
+  };
+
+  // Match the keyword against known categories (e.g. "sport", "tecnologia") to enrich
+  // the fallback with real, manually-verified sources beyond the generic Google News feed.
+  const matchedCategory = CATEGORY_FEEDS.find(c => c.keywords.some(k => normalizedKeyword.includes(k)));
+  const curatedFallback: AIFeedSuggestion[] = matchedCategory
+    ? matchedCategory.feeds.map(f => ({
+        name: f.name,
+        url: f.url,
+        reason: f.reason,
+        category: matchedCategory.category,
+        type: "rss" as const,
+        verified: true,
+        confidence: 1.0
+      }))
+    : [];
+
+  const fallback: AIFeedSuggestion[] = [...curatedFallback, googleNewsFallback];
 
   if (!gemini || !cleanKeyword) {
     return fallback;
@@ -436,5 +504,75 @@ ${htmlSnippet.substring(0, 15000)}`;
   }
 
   return [];
+}
+
+/**
+ * Analyzes the raw HTML of a source once and asks the AI to produce a reusable
+ * CSS selector-based extraction rule (ScraperConfig), so subsequent fetches can
+ * scrape new articles from that source with cheerio, without further AI calls.
+ */
+export async function generateScraperConfig(url: string, htmlSnippet: string, sourceName: string): Promise<ScraperConfig | null> {
+  const gemini = getGemini();
+  if (!gemini) {
+    return null;
+  }
+
+  const prompt = `Sei un ingegnere esperto di web scraping. Analizza l'HTML della homepage del sito di news "${sourceName}" (URL: ${url}) e produci una regola di estrazione RIUTILIZZABILE basata su selettori CSS, così che un programma possa estrarre gli articoli da questo stesso sito in futuro senza intervento umano o AI.
+
+ISTRUZIONI:
+1. Individua il selettore CSS del blocco/contenitore HTML che si ripete per ogni notizia in homepage (es. "article.card", "div.news-item", ecc.). Deve matchare SOLO blocchi di notizie reali, non menu/pubblicità/footer.
+2. Per ognuno di quei selettori, fornisci i selettori CSS RELATIVI (cercati dentro al contenitore) per: titolo, link (e l'attributo da leggere, di solito "href"), immagine (e l'attributo, di solito "src" o "data-src"), data/orario pubblicazione (se presente), breve estratto (se presente).
+3. I selettori devono essere il più possibile stabili e generici (basati su tag/classi strutturali), non su indici numerici fragili.
+4. Se non riesci a identificare un pattern ripetuto affidabile, rispondi con {"unsupported": true}.
+
+Rispondi ESCLUSIVAMENTE con un JSON valido in uno di questi due formati:
+{
+  "containerSelector": "string",
+  "titleSelector": "string",
+  "linkSelector": "string",
+  "linkAttr": "string",
+  "imageSelector": "string",
+  "imageAttr": "string",
+  "dateSelector": "string",
+  "snippetSelector": "string"
+}
+oppure
+{ "unsupported": true }
+
+ESTRATTO HTML DA ANALIZZARE:
+${htmlSnippet.substring(0, 15000)}`;
+
+  try {
+    const response = await gemini.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.1
+      }
+    });
+
+    if (response.text) {
+      const parsed = JSON.parse(response.text);
+      if (parsed.unsupported) return null;
+      if (parsed.containerSelector && parsed.titleSelector && parsed.linkSelector) {
+        return {
+          containerSelector: String(parsed.containerSelector),
+          titleSelector: String(parsed.titleSelector),
+          linkSelector: String(parsed.linkSelector),
+          linkAttr: parsed.linkAttr ? String(parsed.linkAttr) : undefined,
+          imageSelector: parsed.imageSelector ? String(parsed.imageSelector) : undefined,
+          imageAttr: parsed.imageAttr ? String(parsed.imageAttr) : undefined,
+          dateSelector: parsed.dateSelector ? String(parsed.dateSelector) : undefined,
+          snippetSelector: parsed.snippetSelector ? String(parsed.snippetSelector) : undefined,
+          generatedAt: new Date().toISOString(),
+        };
+      }
+    }
+  } catch (err: any) {
+    console.warn(`AI ScraperConfig generation error for ${sourceName}:`, err.message || "Unknown error");
+  }
+
+  return null;
 }
 

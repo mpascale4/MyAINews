@@ -633,6 +633,16 @@ export default function ArticlesList() {
             <option value="AI Relevance">Rilevanza AI</option>
           </select>
         </div>
+
+        <button
+          onClick={handleFetchFeeds}
+          disabled={loading}
+          className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+          title="Aggiorna notizie"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Aggiorna
+        </button>
       </div>
 
       {/* 3 Sorgenti più cliccate e Selezione Sorgente */}
