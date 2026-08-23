@@ -631,7 +631,10 @@ export async function seedInitialData() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         url TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
-        is_manual INTEGER DEFAULT 0
+        is_manual INTEGER DEFAULT 0,
+        shown_count INTEGER DEFAULT 0,
+        scraper_config TEXT,
+        scraper_fail_count INTEGER DEFAULT 0
       );
     `);
 
@@ -667,7 +670,16 @@ export async function seedInitialData() {
     await db.run(sql`ALTER TABLE articles ADD COLUMN saved_at TEXT`);
   } catch (e) {}
   try {
+    await db.run(sql`ALTER TABLE articles ADD COLUMN read_at TEXT`);
+  } catch (e) {}
+  try {
     await db.run(sql`ALTER TABLE rss_feeds ADD COLUMN shown_count INTEGER DEFAULT 0`);
+  } catch (e) {}
+  try {
+    await db.run(sql`ALTER TABLE rss_feeds ADD COLUMN scraper_config TEXT`);
+  } catch (e) {}
+  try {
+    await db.run(sql`ALTER TABLE rss_feeds ADD COLUMN scraper_fail_count INTEGER DEFAULT 0`);
   } catch (e) {}
 
   // Check if we need to seed feeds
