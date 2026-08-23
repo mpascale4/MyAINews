@@ -309,10 +309,15 @@ async function startServer() {
         }
       });
       
-      const topSources = Object.entries(sourceCount)
+      const currentFeeds = await db.select().from(rssFeeds);
+      const currentFeedNames = new Set(currentFeeds.map(f => f.name));
+
+      const sortedSources = Object.entries(sourceCount)
          .sort((a, b) => b[1] - a[1])
-         .slice(0, 5)
-         .map(([name, count]) => ({ name, count }));
+         .map(([name, count]) => ({ name, count, active: currentFeedNames.has(name) }));
+
+      const topSources = sortedSources.filter(s => s.active).slice(0, 5);
+      const removedSources = sortedSources.filter(s => !s.active).slice(0, 5);
 
       // Calculate AI analyzed topics from the week
       const sevenDaysAgo = new Date();
@@ -325,39 +330,48 @@ async function startServer() {
       });
 
       const targetArticles = weekArticles.length >= 3 ? weekArticles : visibleArticles;
-      const topicStats: Record<string, { count: number; relevanceSum: number }> = {};
 
-      targetArticles.forEach(a => {
-        if (Array.isArray(a.aiTags) && a.aiTags.length > 0) {
-          a.aiTags.forEach(rawTag => {
-            if (!rawTag || typeof rawTag !== 'string') return;
-            const tag = rawTag.trim();
-            if (tag.length < 2) return;
-            // Format nice label
-            const label = tag.charAt(0).toUpperCase() + tag.slice(1);
-            if (!topicStats[label]) {
-              topicStats[label] = { count: 0, relevanceSum: 0 };
-            }
-            topicStats[label].count += 1;
-            topicStats[label].relevanceSum += (a.aiRelevance || 50);
-          });
-        }
-      });
+      const computeTopicStats = (arts: typeof targetArticles) => {
+        const stats: Record<string, { count: number; relevanceSum: number }> = {};
+        arts.forEach(a => {
+          if (Array.isArray(a.aiTags) && a.aiTags.length > 0) {
+            a.aiTags.forEach(rawTag => {
+              if (!rawTag || typeof rawTag !== 'string') return;
+              const tag = rawTag.trim();
+              if (tag.length < 2) return;
+              // Format nice label
+              const label = tag.charAt(0).toUpperCase() + tag.slice(1);
+              if (!stats[label]) {
+                stats[label] = { count: 0, relevanceSum: 0 };
+              }
+              stats[label].count += 1;
+              stats[label].relevanceSum += (a.aiRelevance || 50);
+            });
+          }
+        });
+        return Object.entries(stats)
+          .map(([topic, stat]) => ({
+            topic,
+            count: stat.count,
+            avgRelevance: Math.round(stat.relevanceSum / stat.count)
+          }))
+          .sort((a, b) => b.count - a.count || b.avgRelevance - a.avgRelevance)
+          .slice(0, 8);
+      };
 
-      const weeklyTopics = Object.entries(topicStats)
-        .map(([topic, stat]) => ({
-          topic,
-          count: stat.count,
-          avgRelevance: Math.round(stat.relevanceSum / stat.count)
-        }))
-        .sort((a, b) => b.count - a.count || b.avgRelevance - a.avgRelevance)
-        .slice(0, 8);
+      const activeTargetArticles = targetArticles.filter(a => !a.source || currentFeedNames.has(a.source));
+      const removedTargetArticles = targetArticles.filter(a => a.source && !currentFeedNames.has(a.source));
+
+      const weeklyTopics = computeTopicStats(activeTargetArticles);
+      const removedWeeklyTopics = computeTopicStats(removedTargetArticles);
 
       res.json({
         readCount,
         unreadCount,
         topSources,
+        removedSources,
         weeklyTopics,
+        removedWeeklyTopics,
       });
     } catch (err) {
       console.error(err);

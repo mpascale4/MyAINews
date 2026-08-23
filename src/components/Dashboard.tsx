@@ -21,7 +21,9 @@ interface DashboardStats {
   readCount: number;
   unreadCount: number;
   topSources: { name: string; count: number }[];
+  removedSources?: { name: string; count: number }[];
   weeklyTopics?: WeeklyTopic[];
+  removedWeeklyTopics?: WeeklyTopic[];
 }
 
 const BAR_COLORS = [
@@ -50,21 +52,25 @@ export default function Dashboard() {
             readCount: Number(data.readCount) || 0,
             unreadCount: Number(data.unreadCount) || 0,
             topSources: Array.isArray(data.topSources) ? data.topSources : [],
-            weeklyTopics: Array.isArray(data.weeklyTopics) ? data.weeklyTopics : []
+            removedSources: Array.isArray(data.removedSources) ? data.removedSources : [],
+            weeklyTopics: Array.isArray(data.weeklyTopics) ? data.weeklyTopics : [],
+            removedWeeklyTopics: Array.isArray(data.removedWeeklyTopics) ? data.removedWeeklyTopics : []
           });
         } else {
-          setStats({ readCount: 0, unreadCount: 0, topSources: [], weeklyTopics: [] });
+          setStats({ readCount: 0, unreadCount: 0, topSources: [], removedSources: [], weeklyTopics: [], removedWeeklyTopics: [] });
         }
       })
       .catch(err => {
         console.error("Error loading dashboard stats:", err);
-        setStats({ readCount: 0, unreadCount: 0, topSources: [], weeklyTopics: [] });
+        setStats({ readCount: 0, unreadCount: 0, topSources: [], removedSources: [], weeklyTopics: [], removedWeeklyTopics: [] });
       });
   }, []);
 
   if (!stats) return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Caricamento statistiche...</div>;
 
   const topicsData = stats.weeklyTopics || [];
+  const removedTopicsData = stats.removedWeeklyTopics || [];
+  const removedSourcesData = stats.removedSources || [];
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -186,6 +192,25 @@ export default function Dashboard() {
             </p>
           </div>
         )}
+
+        {removedTopicsData.length > 0 && (
+          <div className="mt-6 pt-4 border-t border-dashed border-slate-200 dark:border-slate-700/60">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">
+              Argomenti da sorgenti non più presenti (rimosse o modificate)
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {removedTopicsData.map((t, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700/70"
+                >
+                  {t.topic}
+                  <span className="font-bold ml-0.5">({t.count})</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6">
@@ -209,6 +234,24 @@ export default function Dashboard() {
                   <p className="text-slate-400 dark:text-slate-500 text-sm italic">Non hai ancora letto abbastanza articoli.</p>
                )}
             </div>
+
+            {removedSourcesData.length > 0 && (
+              <div className="mt-6 pt-4 border-t border-dashed border-slate-200 dark:border-slate-700/60">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">
+                  Sorgenti non più presenti (rimosse o modificate)
+                </p>
+                <div className="space-y-2">
+                  {removedSourcesData.map((source, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 rounded-xl opacity-60">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium text-sm">{source.name}</span>
+                      <span className="text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/70 px-3 py-1 rounded-full text-xs font-semibold">
+                        {source.count} letti
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
          </div>
          
       </div>
