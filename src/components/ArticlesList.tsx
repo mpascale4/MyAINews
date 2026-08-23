@@ -180,10 +180,11 @@ export default function ArticlesList() {
     }
   };
 
-  const fetchArticles = () => {
+  const fetchArticles = (overrideSource?: string) => {
     setLoading(true);
+    const effectiveSource = overrideSource !== undefined ? overrideSource : selectedSource;
     const tagParam = selectedTag ? `&tag=${encodeURIComponent(selectedTag)}` : "";
-    const sourceParam = selectedSource ? `&source=${encodeURIComponent(selectedSource)}` : "";
+    const sourceParam = effectiveSource ? `&source=${encodeURIComponent(effectiveSource)}` : "";
     
     // Use a timeout to ensure we don't stay in loading forever if the request hangs
     const controller = new AbortController();
@@ -390,7 +391,7 @@ export default function ArticlesList() {
       body: JSON.stringify(srcName ? { feedName: srcName } : {})
     })
       .catch(err => console.error("Error refreshing source:", err))
-      .finally(() => fetchArticles());
+      .finally(() => fetchArticles(srcName));
   };
 
   const handleCreateTransformerForSelectedSource = async () => {
