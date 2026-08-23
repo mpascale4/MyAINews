@@ -10,6 +10,7 @@ import {
   Cell, 
   CartesianGrid 
 } from "recharts";
+import { getSourceAccent, getSourceInitial } from "../lib/sourceStyle";
 
 interface WeeklyTopic {
   topic: string;
@@ -222,14 +223,22 @@ export default function Dashboard() {
             </h3>
             
             <div className="space-y-4">
-               {stats.topSources.map((source, index) => (
-                 <div key={index} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <span className="text-slate-700 dark:text-slate-300 font-medium text-sm">{source.name}</span>
-                    <span className="text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded-full text-xs font-semibold">
+               {stats.topSources.map((source, index) => {
+                 const accent = getSourceAccent(source.name);
+                 return (
+                 <div key={index} className={`flex items-center justify-between p-2 pl-3 rounded-xl transition-colors ${accent.bg}`}>
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 bg-white/40 dark:bg-black/20" aria-hidden="true">
+                        <span className={`text-[10px] font-black ${accent.text}`}>{getSourceInitial(source.name)}</span>
+                      </span>
+                      <span className={`font-medium text-sm truncate ${accent.text}`}>{source.name}</span>
+                    </span>
+                    <span className={`bg-white/50 dark:bg-black/20 px-3 py-1 rounded-full text-xs font-semibold shrink-0 ${accent.text}`}>
                       {source.count} letti
                     </span>
                  </div>
-               ))}
+                 );
+               })}
                {stats.topSources.length === 0 && (
                   <p className="text-slate-400 dark:text-slate-500 text-sm italic">Non hai ancora letto abbastanza articoli.</p>
                )}

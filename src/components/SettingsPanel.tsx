@@ -852,17 +852,17 @@ export default function SettingsPanel() {
               return (
                 <div 
                   key={feed.id} 
-                  className="flex flex-col gap-3 p-4 sm:px-5 sm:py-4 rounded-xl transition-all bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/70 hover:bg-slate-100/80 dark:hover:bg-slate-800"
+                  className={`flex flex-col gap-3 p-4 sm:px-5 sm:py-4 rounded-xl transition-all border border-transparent ${accent.bg}`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2.5 flex-wrap">
-                          <span className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${accent.bg}`} aria-hidden="true">
+                          <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-white/40 dark:bg-black/20" aria-hidden="true">
                             <span className={`text-[11px] font-black ${accent.text}`}>{getSourceInitial(feed.name)}</span>
                           </span>
-                          <h4 className="font-bold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base">{feed.name}</h4>
+                          <h4 className={`font-bold truncate text-sm sm:text-base ${accent.text}`}>{feed.name}</h4>
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1 font-mono">{feed.url}</p>
+                        <p className={`text-xs truncate mt-1 font-mono opacity-70 ${accent.text}`}>{feed.url}</p>
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
