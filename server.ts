@@ -528,6 +528,31 @@ async function startServer() {
     }
   });
 
+  // Fix a feed's URL (e.g. when the RSS is dead/empty) and try to (re)build
+  // an ad-hoc HTML transformer for the new URL right away.
+  app.patch("/api/feeds/:id/url", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const url = req.body.url ? String(req.body.url).trim() : '';
+      if (!url) return res.status(400).json({ error: "URL is required" });
+
+      const existing = await db.select().from(rssFeeds).where(eq(rssFeeds.id, id));
+      const feed = existing[0];
+      if (!feed) return res.status(404).json({ error: "Feed not found" });
+
+      await db.update(rssFeeds).set({ url, scraperConfig: null, scraperFailCount: 0 }).where(eq(rssFeeds.id, id));
+      res.json({ success: true });
+
+      // Fire-and-forget: try RSS first, then fall back to an ad-hoc transformer.
+      ensureScraperConfigForFeed(id, url, feed.name || url).catch((e: any) => {
+        console.warn("Background ad-hoc transformer setup failed after URL fix:", e.message || e);
+      });
+    } catch (err: any) {
+      console.warn("Error fixing feed URL:", err.message || err);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  });
+
   // Add multiple feeds
   app.post("/api/feeds/bulk", async (req, res) => {
     try {

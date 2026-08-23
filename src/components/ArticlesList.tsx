@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Article, Interest } from "../types";
@@ -20,9 +20,6 @@ import {
   BookmarkCheck,
   Info,
   Rss,
-  Search,
-  Flame,
-  ChevronDown,
   RotateCcw,
   Compass,
   Loader2,
@@ -57,7 +54,7 @@ function HiddenArticlePlaceholder({ article, onUndo }: { article: Article; onUnd
             {article.title}
           </p>
           <p className="text-xs text-slate-400">
-            Questa notizia non comparirà più nel tuo feed personalizzato.
+            Questa notizia non comparirÃ  piÃ¹ nel tuo feed personalizzato.
           </p>
         </div>
       </div>
@@ -101,9 +98,13 @@ export default function ArticlesList() {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const loadMoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Source selection overlay modal state & click frequency tracking
-  const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
-  const [sourceSearch, setSourceSearch] = useState("");
+  // "Fix URL" flow for a broken/empty source (shown in the empty-state box)
+  const [isFixUrlOpen, setIsFixUrlOpen] = useState(false);
+  const [fixUrlValue, setFixUrlValue] = useState("");
+  const [isFixingUrl, setIsFixingUrl] = useState(false);
+  const [fixUrlFeedback, setFixUrlFeedback] = useState<string | null>(null);
+
+  // Source click frequency tracking
   const [sourceClickCounts, setSourceClickCounts] = useState<Record<string, number>>(() => {
     try {
       const saved = localStorage.getItem("source_click_counts");
@@ -383,30 +384,46 @@ export default function ArticlesList() {
       setSelectedTag(null);
     }
     setSelectedSource(srcName);
-    setIsSourceModalOpen(false);
+    setIsFixUrlOpen(false);
+    setFixUrlValue("");
+    setFixUrlFeedback(null);
   };
 
-  const filteredSources = React.useMemo(() => {
-    let list = configuredFeeds.map(f => f.name);
-    if (sourceSearch.trim()) {
-      const query = sourceSearch.toLowerCase().trim();
-      list = list.filter(s => s.toLowerCase().includes(query));
-    }
-    return [...list].sort((a, b) => {
-      const countA = sourceClickCounts[a] || 0;
-      const countB = sourceClickCounts[b] || 0;
-      if (countB !== countA) return countB - countA;
-      return a.localeCompare(b);
-    });
-  }, [configuredFeeds, sourceSearch, sourceClickCounts]);
+  const handleOpenFixUrl = () => {
+    const feed = configuredFeeds.find(f => f.name === selectedSource);
+    setFixUrlValue(feed?.url || "");
+    setFixUrlFeedback(null);
+    setIsFixUrlOpen(true);
+  };
 
-  const topClickedSources = React.useMemo(() => {
-    return configuredFeeds
-      .map(f => f.name)
-      .filter(s => (sourceClickCounts[s] || 0) > 0)
-      .sort((a, b) => (sourceClickCounts[b] || 0) - (sourceClickCounts[a] || 0))
-      .slice(0, 5);
-  }, [configuredFeeds, sourceClickCounts]);
+  const handleFixSourceUrl = async () => {
+    const feed = configuredFeeds.find(f => f.name === selectedSource);
+    const newUrl = fixUrlValue.trim();
+    if (!feed || !newUrl) return;
+
+    setIsFixingUrl(true);
+    setFixUrlFeedback(null);
+    try {
+      const res = await fetch(`/api/feeds/${feed.id}/url`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: newUrl }),
+      });
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      setFixUrlFeedback("URL aggiornato! Se non c'è un RSS valido, verrà creato automaticamente un trasformatore ad-hoc per la pagina HTML entro qualche secondo.");
+      setConfiguredFeeds(prev => prev.map(f => f.id === feed.id ? { ...f, url: newUrl } : f));
+      setTimeout(() => {
+        fetchArticles();
+        setFixUrlFeedback(null);
+        setIsFixUrlOpen(false);
+      }, 6000);
+    } catch (err: any) {
+      console.error("Error fixing feed URL:", err);
+      setFixUrlFeedback("Errore durante l'aggiornamento dell'URL. Riprova.");
+    } finally {
+      setIsFixingUrl(false);
+    }
+  };
 
   const top10Sources = React.useMemo(() => {
     const list = configuredFeeds.map(f => f.name);
@@ -427,7 +444,7 @@ export default function ArticlesList() {
       if (selectedSummary && selectedSummary.id === article.id) {
         setSelectedSummary(null);
       }
-      setFeedbackMessage("Articolo salvato in 'Leggi dopo' e rimosso dal feed 📌");
+      setFeedbackMessage("Articolo salvato in 'Leggi dopo' e rimosso dal feed ðŸ“Œ");
     } else {
       setArticles(prev => prev.map(a => a.id === article.id ? { ...a, isSaved: false } : a));
       if (selectedSummary && selectedSummary.id === article.id) {
@@ -517,7 +534,7 @@ export default function ArticlesList() {
         setArticles(prev => prev.map(a => a.id === id ? { ...a, aiSummary: data.aiSummary, aiTags: data.aiTags, aiRelevance: data.aiRelevance } : a));
         setSelectedSummary(prev => prev ? { ...prev, aiSummary: data.aiSummary, aiTags: data.aiTags, aiRelevance: data.aiRelevance } : null);
       } else {
-        setSummaryError("Impossibile generare il riassunto. Riprova più tardi.");
+        setSummaryError("Impossibile generare il riassunto. Riprova piÃ¹ tardi.");
       }
     } catch (e) {
       console.error(e);
@@ -527,7 +544,7 @@ export default function ArticlesList() {
   };
 
   const generateSummary = async (id: number) => {
-    if (!window.confirm("Vuoi rigenerare il riassunto di questo articolo? Il riassunto precedente verrà sovrascritto.")) {
+    if (!window.confirm("Vuoi rigenerare il riassunto di questo articolo? Il riassunto precedente verrÃ  sovrascritto.")) {
       return;
     }
     await autoGenerateSummary(id);
@@ -640,13 +657,13 @@ export default function ArticlesList() {
             </button>
           ))}
 
-          {/* Ordinamento (Più recenti) posizionato subito dopo Oggi */}
+          {/* Ordinamento (PiÃ¹ recenti) posizionato subito dopo Oggi */}
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value)}
             className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-full px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer transition-colors"
           >
-            <option value="Date">Più recenti</option>
+            <option value="Date">PiÃ¹ recenti</option>
             <option value="AI Relevance">Rilevanza AI</option>
           </select>
         </div>
@@ -662,59 +679,37 @@ export default function ArticlesList() {
         </button>
       </div>
 
-      {/* 3 Sorgenti più cliccate e Selezione Sorgente */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 px-4 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-800 transition-colors">
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => {
-              setSourceSearch("");
-              setIsSourceModalOpen(true);
-            }}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold border transition-all cursor-pointer ${
-              selectedSource
-                ? "bg-indigo-600 text-white border-indigo-600 shadow-xs hover:bg-indigo-700"
-                : "bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100/80 dark:hover:bg-indigo-900/40"
-            }`}
-            title="Seleziona sorgente"
-          >
-            <Rss className={`w-4 h-4 shrink-0 ${selectedSource ? "text-white" : "text-indigo-500 dark:text-indigo-400"}`} />
-            <span className="truncate max-w-[150px] sm:max-w-[200px]">
-              {selectedSource ? `Sorgente: ${selectedSource}` : "Seleziona Sorgente"}
-            </span>
-            <ChevronDown className="w-3.5 h-3.5 opacity-70 shrink-0" />
-          </button>
-        </div>
-
-        {top10Sources.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-2 max-w-full overflow-hidden">
-            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mr-1 sm:block hidden shrink-0">
-              Le tue fonti:
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {top10Sources.map((srcName) => {
-                const isSelected = selectedSource === srcName;
-                return (
-                  <button
-                    key={srcName}
-                    onClick={() => handleSelectSource(isSelected ? "" : srcName)}
-                    className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 border shrink-0 ${
-                      isSelected
-                        ? "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-400/40"
-                        : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80"
-                    }`}
-                    title={`Filtra per ${srcName}`}
-                  >
-                    <span className="truncate max-w-[110px] sm:max-w-[160px]">{srcName}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="text-[11px] text-slate-400 dark:text-slate-500 italic">
-            Clicca sugli articoli per rilevare le tue fonti più visitate!
-          </div>
-        )}
+      {/* Selezione Sorgente: lista piatta completa di tutte le sorgenti disponibili */}
+      <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-slate-900 p-3.5 px-4 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-800 transition-colors">
+        <button
+          onClick={() => handleSelectSource("")}
+          className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 border shrink-0 ${
+            selectedSource === ""
+              ? "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-400/40"
+              : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80"
+          }`}
+          title="Mostra tutte le sorgenti"
+        >
+          <Rss className="w-3.5 h-3.5 shrink-0" />
+          <span>Tutte le sorgenti</span>
+        </button>
+        {configuredFeeds.map((feed) => {
+          const isSelected = selectedSource === feed.name;
+          return (
+            <button
+              key={feed.name}
+              onClick={() => handleSelectSource(isSelected ? "" : feed.name)}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 border shrink-0 ${
+                isSelected
+                  ? "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-400/40"
+                  : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80"
+              }`}
+              title={`Filtra per ${feed.name}`}
+            >
+              <span className="truncate max-w-[160px]">{feed.name}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Active Tag Filter Indicator */}
@@ -737,18 +732,61 @@ export default function ArticlesList() {
       {loading ? (
         <div className="text-center text-slate-500 dark:text-slate-400 py-12">Caricamento notizie...</div>
       ) : articles.length === 0 ? (
-        <div className="text-center text-slate-500 dark:text-slate-400 py-12 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-          Nessuna notizia trovata per i criteri selezionati.
+        <div className="text-center text-slate-500 dark:text-slate-400 py-12 px-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+          <p>Nessuna notizia trovata per i criteri selezionati.</p>
+
+          {selectedSource && !isFixUrlOpen && (
+            <button
+              onClick={handleOpenFixUrl}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer"
+            >
+              <Rss className="w-3.5 h-3.5" /> Correggi URL sorgente "{selectedSource}"
+            </button>
+          )}
+
+          {selectedSource && isFixUrlOpen && (
+            <div className="max-w-md mx-auto space-y-2.5 text-left">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Inserisci il nuovo URL per "{selectedSource}". Se non ha un RSS valido, verrà creato automaticamente un trasformatore ad-hoc per estrarre le notizie dalla pagina HTML.
+              </p>
+              <input
+                type="text"
+                value={fixUrlValue}
+                onChange={(e) => setFixUrlValue(e.target.value)}
+                placeholder="https://..."
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleFixSourceUrl}
+                  disabled={isFixingUrl || !fixUrlValue.trim()}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {isFixingUrl ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  Aggiorna e crea trasformatore
+                </button>
+                <button
+                  onClick={() => { setIsFixUrlOpen(false); setFixUrlFeedback(null); }}
+                  className="px-3 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer"
+                >
+                  Annulla
+                </button>
+              </div>
+              {fixUrlFeedback && (
+                <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{fixUrlFeedback}</p>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
           {/* Quick gesture hint for mobile/touch users */}
           <div className="flex flex-wrap items-center justify-between text-xs text-slate-400 dark:text-slate-500 px-1 py-0.5 select-none gap-2">
             <span className="flex items-center gap-1.5">
-              <span>👉</span> <span><strong>Swipe a destra:</strong> apri AI summary</span>
+              <span>ðŸ‘‰</span> <span><strong>Swipe a destra:</strong> apri AI summary</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span>👈</span> <span><strong>Swipe a sinistra:</strong> nascondi notizia</span>
+              <span>ðŸ‘ˆ</span> <span><strong>Swipe a sinistra:</strong> nascondi notizia</span>
             </span>
           </div>
 
@@ -805,7 +843,7 @@ export default function ArticlesList() {
                   onClick={() => setVisibleCount(prev => prev + 24)}
                   className="mt-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
                 >
-                  Mostra di più ora
+                  Mostra di piÃ¹ ora
                 </button>
               )}
             </div>
@@ -968,7 +1006,7 @@ export default function ArticlesList() {
                 <div>
                   <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">AI Summary Completo</h2>
                   <p className="text-xs font-normal text-slate-500 dark:text-slate-400">
-                    {selectedSummary.source} • {selectedSummary.pubDate ? format(new Date(selectedSummary.pubDate), "d MMMM yyyy, HH:mm", { locale: it }) : ''}
+                    {selectedSummary.source} â€¢ {selectedSummary.pubDate ? format(new Date(selectedSummary.pubDate), "d MMMM yyyy, HH:mm", { locale: it }) : ''}
                   </p>
                 </div>
               </div>
@@ -1173,7 +1211,7 @@ export default function ArticlesList() {
               </div>
 
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                Questa notizia compare nel tuo feed perché è pubblicata da <strong className="text-slate-900 dark:text-slate-100">{infoModalArticle.source || 'RSS Feed'}</strong> ed è associata ai tuoi temi di interesse.
+                Questa notizia compare nel tuo feed perchÃ© Ã¨ pubblicata da <strong className="text-slate-900 dark:text-slate-100">{infoModalArticle.source || 'RSS Feed'}</strong> ed Ã¨ associata ai tuoi temi di interesse.
               </p>
 
               {infoModalArticle.aiTags && infoModalArticle.aiTags.length > 0 && (
@@ -1226,166 +1264,6 @@ export default function ArticlesList() {
         </div>
       )}
 
-      {/* Source Filter Modal Overlay */}
-      {isSourceModalOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[90] flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={() => setIsSourceModalOpen(false)}
-        >
-          <div 
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-100 dark:border-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                  <Rss className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    Seleziona Sorgente
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Filtra le notizie per la tua fonte preferita
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsSourceModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Search Input inside Modal */}
-            <div className="p-4 bg-slate-50/50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 shrink-0">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
-                <input
-                  type="text"
-                  value={sourceSearch}
-                  onChange={(e) => setSourceSearch(e.target.value)}
-                  placeholder="Cerca sorgente..."
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-9 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                {sourceSearch && (
-                  <button 
-                    onClick={() => setSourceSearch("")} 
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="p-5 overflow-y-auto space-y-5 flex-1">
-              {/* Option to show All Sources */}
-              <button
-                onClick={() => handleSelectSource("")}
-                className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer font-medium text-sm ${
-                  selectedSource === ""
-                    ? "bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 font-semibold shadow-xs"
-                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${selectedSource === "" ? "bg-indigo-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"}`}>
-                    <Rss className="w-4 h-4" />
-                  </div>
-                  <span>Tutte le sorgenti</span>
-                </div>
-                {selectedSource === "" && <Check className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />}
-              </button>
-
-              {/* Top Clicked Sources Section */}
-              {topClickedSources.length > 0 && !sourceSearch && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Più consultate
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {topClickedSources.map((src) => (
-                      <button
-                        key={`top-${src}`}
-                        onClick={() => handleSelectSource(src)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-2xl text-xs font-semibold border transition-all cursor-pointer ${
-                          selectedSource === src
-                            ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
-                            : "bg-amber-50/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-amber-200/80 dark:border-amber-900/60 hover:bg-amber-100 dark:hover:bg-amber-900/60"
-                        }`}
-                      >
-                        <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
-                        <span className="truncate max-w-[140px]">{src}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-200/60 dark:bg-amber-900/80 text-amber-900 dark:text-amber-100 font-bold shrink-0">
-                          {sourceClickCounts[src]}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* All Available Sources List */}
-              <div>
-                <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Sorgenti disponibili ({filteredSources.length})
-                  </span>
-                </div>
-                
-                {filteredSources.length === 0 ? (
-                  <p className="text-center py-8 text-sm text-slate-500 dark:text-slate-400">
-                    Nessuna sorgente trovata per "{sourceSearch}"
-                  </p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {filteredSources.map((src) => {
-                      const clickCount = sourceClickCounts[src] || 0;
-                      const isSelected = selectedSource === src;
-
-                      return (
-                        <button
-                          key={src}
-                          onClick={() => handleSelectSource(src)}
-                          className={`w-full flex items-center justify-between p-3 rounded-2xl text-sm border transition-all cursor-pointer ${
-                            isSelected
-                              ? "bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 font-bold"
-                              : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 truncate mr-2">
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-400"}`}>
-                              <Rss className="w-3.5 h-3.5" />
-                            </div>
-                            <span className="truncate">{src}</span>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            {clickCount > 0 && (
-                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
-                                <Flame className="w-3 h-3 text-amber-500 fill-amber-500" />
-                                {clickCount}
-                              </span>
-                            )}
-                            {isSelected && <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
