@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Interest, Feed, SuggestedFeed } from "../types";
-import { getSourceAccent, getSourceInitial } from "../lib/sourceStyle";
+import { getSourceAccent, getSourceInitial, registerSourceNames } from "../lib/sourceStyle";
 import { 
   Plus, Trash2, Rss, Hash, Sparkles, X, CheckCircle2, Globe, Compass, 
   Loader2, UserCheck, Bot, Info, ShieldCheck, RefreshCw, Bell, BellRing, Sliders, Check, AlertTriangle, Download, Upload
@@ -297,7 +297,9 @@ export default function SettingsPanel() {
       const fRes = await fetch('/api/feeds');
       if (fRes.ok) {
         const fData = await fRes.json();
-        setFeeds(Array.isArray(fData) ? fData : []);
+        const fList = Array.isArray(fData) ? fData : [];
+        registerSourceNames(fList.map((f: any) => f.name));
+        setFeeds(fList);
       }
       
       const sRes = await fetch('/api/feeds/stats');

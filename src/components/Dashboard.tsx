@@ -10,7 +10,7 @@ import {
   Cell, 
   CartesianGrid 
 } from "recharts";
-import { getSourceAccent, getSourceInitial } from "../lib/sourceStyle";
+import { getSourceAccent, getSourceInitial, registerSourceNames } from "../lib/sourceStyle";
 
 interface WeeklyTopic {
   topic: string;
@@ -49,11 +49,14 @@ export default function Dashboard() {
       })
       .then(data => {
         if (data && typeof data === 'object' && 'readCount' in data) {
+          const topSources = Array.isArray(data.topSources) ? data.topSources : [];
+          const removedSources = Array.isArray(data.removedSources) ? data.removedSources : [];
+          registerSourceNames([...topSources, ...removedSources].map((s: any) => s.name));
           setStats({
             readCount: Number(data.readCount) || 0,
             unreadCount: Number(data.unreadCount) || 0,
-            topSources: Array.isArray(data.topSources) ? data.topSources : [],
-            removedSources: Array.isArray(data.removedSources) ? data.removedSources : [],
+            topSources,
+            removedSources,
             weeklyTopics: Array.isArray(data.weeklyTopics) ? data.weeklyTopics : [],
             removedWeeklyTopics: Array.isArray(data.removedWeeklyTopics) ? data.removedWeeklyTopics : []
           });

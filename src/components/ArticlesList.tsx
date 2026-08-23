@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import ArticleCardItem from "./ArticleCardItem";
 import FormattedSummary from "./FormattedSummary";
-import { getSourceAccent, getSourceInitial } from "../lib/sourceStyle";
+import { getSourceAccent, getSourceInitial, registerSourceNames } from "../lib/sourceStyle";
 
 function HiddenArticlePlaceholder({ article, onUndo }: { article: Article; onUndo: () => void | Promise<void>; key?: any }) {
   const [timeLeft, setTimeLeft] = useState(6);
@@ -188,6 +188,7 @@ export default function ArticlesList() {
       if (res.ok) {
         const feedsData = await res.json();
         const feedList = Array.isArray(feedsData) ? feedsData : [];
+        registerSourceNames(feedList.map((f: any) => f.name));
         setConfiguredFeeds(feedList);
       }
     } catch (e) {
