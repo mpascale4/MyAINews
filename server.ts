@@ -583,6 +583,24 @@ async function startServer() {
         })).filter((f: any) => f.url);
         if (cleanedFeeds.length > 0) {
           await db.insert(rssFeeds).values(cleanedFeeds).onConflictDoNothing();
+
+          // For feeds that already existed (so the insert above was a no-op),
+          // backfill their addedVia note if it was still empty, without
+          // touching or duplicating anything else.
+          const feedsWithVia = cleanedFeeds.filter(f => f.addedVia);
+          if (feedsWithVia.length > 0) {
+            const existing = await db.select().from(rssFeeds).where(
+              or(...feedsWithVia.map(f => eq(rssFeeds.url, f.url)))
+            );
+            for (const feed of existing) {
+              if (!feed.addedVia) {
+                const match = feedsWithVia.find(f => f.url === feed.url);
+                if (match) {
+                  await db.update(rssFeeds).set({ addedVia: match.addedVia }).where(eq(rssFeeds.id, feed.id));
+                }
+              }
+            }
+          }
         }
       }
       res.json({ success: true });

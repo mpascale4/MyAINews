@@ -666,8 +666,13 @@ export default function SettingsPanel() {
       const freshFeeds = await fetch('/api/feeds').then(r => r.json());
       setFeeds(freshFeeds);
       window.dispatchEvent(new CustomEvent('refresh-articles'));
-      setImportFeedback(`Importate ${cleaned.length} sorgenti con successo.`);
-      setTimeout(() => setImportFeedback(null), 5000);
+      const newCount = freshFeeds.length - feeds.length;
+      setImportFeedback(
+        newCount > 0
+          ? `Importate ${newCount} nuove sorgenti (le altre già presenti sono state ignorate, aggiornando solo la chiave di ricerca mancante).`
+          : `Nessuna nuova sorgente da aggiungere: tutte già presenti (chiave di ricerca aggiornata dove mancante).`
+      );
+      setTimeout(() => setImportFeedback(null), 6000);
     } catch (err: any) {
       setImportFeedback(`Errore: ${err.message || "file non valido."}`);
       setTimeout(() => setImportFeedback(null), 6000);
