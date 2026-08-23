@@ -352,6 +352,8 @@ export default function ArticlesList() {
 
   const handleSelectSource = (srcName: string) => {
     if (srcName) {
+      const feed = configuredFeeds.find(f => f.name === srcName);
+      console.log(`[Sorgente selezionata] "${srcName}" -> feed URL: ${feed?.url || "N/D"} | articoli richiesti a: /api/articles?source=${encodeURIComponent(srcName)}`);
       setSourceClickCounts(prev => {
         const updated = { ...prev, [srcName]: (prev[srcName] || 0) + 1 };
         try {

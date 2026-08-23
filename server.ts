@@ -752,7 +752,25 @@ async function startServer() {
     try {
       const { keyword } = req.body;
       const suggestions = await searchFeedsByKeyword(keyword || "");
-      res.json({ feeds: suggestions });
+
+      // Validate each suggested feed in parallel before returning it: a feed
+      // is only useful if it's either a valid RSS with actual items or a
+      // scrapeable HTML page. Suggestions that resolve to nothing (dead URL,
+      // 404, empty RSS) are silently dropped instead of being shown to the
+      // user only to fail when they try to add them.
+      const validated = await Promise.all(
+        suggestions.map(async (feed) => {
+          try {
+            const test = await testFeedUrl(feed.url);
+            const hasContent = (test.isValidRss && (test.itemCount || 0) > 0) || test.isScrapeableHtml;
+            return hasContent ? feed : null;
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      res.json({ feeds: validated.filter((f): f is NonNullable<typeof f> => f !== null) });
     } catch (e: any) {
       console.error("Error in AI feed search:", e);
       res.status(500).json({ error: e.message || "Internal Server Error" });
