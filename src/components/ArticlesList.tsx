@@ -717,23 +717,23 @@ export default function ArticlesList() {
             <button
               key={feed.name}
               onClick={() => handleSelectSource(isSelected ? "" : feed.name)}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 border shrink-0 ${
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex flex-col items-start gap-0 border shrink-0 ${
                 isSelected
                   ? "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-400/40"
                   : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80"
               }`}
               title={feed.addedVia ? `Filtra per ${feed.name} — aggiunta tramite: ${feed.addedVia}` : `Filtra per ${feed.name}`}
             >
-              <span className="truncate max-w-[160px]">{feed.name}</span>
               {feed.addedVia && (
                 <span
-                  className={`text-[9px] font-normal opacity-70 truncate max-w-[90px] ${
+                  className={`text-[9px] font-normal opacity-70 truncate max-w-[160px] leading-none ${
                     isSelected ? "text-indigo-100" : "text-slate-400 dark:text-slate-500"
                   }`}
                 >
-                  · {feed.addedVia}
+                  {feed.addedVia}
                 </span>
               )}
+              <span className="truncate max-w-[160px]">{feed.name}</span>
             </button>
           );
         })}

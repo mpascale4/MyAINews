@@ -186,7 +186,7 @@ export default function SettingsPanel() {
       const res = await fetch('/api/feeds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: item.url, name: item.name, isManual: true, addedVia: `Ricerca AI: "${feedSearchKeyword.trim()}"` })
+        body: JSON.stringify({ url: item.url, name: item.name, isManual: true, addedVia: feedSearchKeyword.trim() })
       });
       if (res.ok) {
         const data = await res.json();
