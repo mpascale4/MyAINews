@@ -343,6 +343,13 @@ const CATEGORY_FEEDS: { keywords: string[]; category: string; feeds: { name: str
       { name: "ANSA Cronaca", url: "https://www.ansa.it/sito/notizie/cronaca/cronaca_rss.xml", reason: "Notizie di cronaca italiana dall'agenzia ANSA." },
     ],
   },
+  {
+    keywords: ["highlights", "serie a", "sintesi partite", "gol serie a"],
+    category: "Sport",
+    feeds: [
+      { name: "Serie A - Highlights (YouTube)", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCBJeMCIeLQos7wacox4hmLQ", reason: "Canale YouTube ufficiale della Lega Serie A con gli highlights di ogni partita." },
+    ],
+  },
 ];
 
 export async function searchFeedsByKeyword(keyword: string): Promise<AIFeedSuggestion[]> {
@@ -420,7 +427,7 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON nel formato:
     if (response.text) {
       const parsed = JSON.parse(response.text);
       if (Array.isArray(parsed.feeds) && parsed.feeds.length > 0) {
-        return parsed.feeds.map((f: any) => ({
+        const aiResults: AIFeedSuggestion[] = parsed.feeds.map((f: any) => ({
           name: String(f.name || cleanKeyword),
           url: String(f.url || "").trim(),
           type: f.type || 'rss',
@@ -429,6 +436,12 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON nel formato:
           reason: String(f.reason || `Feed trovato per "${cleanKeyword}"`),
           category: String(f.category || "Generale")
         })).filter((f: any) => f.url && f.url.startsWith("http"));
+
+        // Prepend our manually-verified curated feeds (e.g. Serie A highlights) when the
+        // keyword matches a known category, so a real verified source is always offered
+        // instead of relying solely on the AI's (sometimes unverified) suggestions.
+        const curatedUrls = new Set(curatedFallback.map(f => f.url));
+        return [...curatedFallback, ...aiResults.filter(f => !curatedUrls.has(f.url))];
       }
     }
   } catch (e) {

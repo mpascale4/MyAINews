@@ -77,6 +77,19 @@ function extractImageUrl(item: any): string | null {
   return null;
 }
 
+// Normalizes a link for deduplication purposes. Query strings are usually just
+// tracking params and can be safely dropped, but some sites (notably YouTube's
+// /watch?v=... URLs) use the query string itself to identify the resource, so
+// stripping it there would collapse every video into the same "duplicate" link.
+export function normalizeLink(link: string): string {
+  const trimmed = (link || '').trim().toLowerCase();
+  if (!trimmed) return '';
+  if (trimmed.includes('youtube.com/watch') || trimmed.includes('youtu.be/')) {
+    return trimmed.split('#')[0];
+  }
+  return trimmed.split('?')[0].split('#')[0];
+}
+
 function stripHtml(html: string | undefined): string {
   if (!html) return '';
   return html.replace(/<[^>]*>?/gm, '');
@@ -452,7 +465,7 @@ export async function fetchAllFeeds() {
   const allExisting = await db.select({ guid: articles.guid, title: articles.title, link: articles.link }).from(articles);
   const existingGuids = new Set(allExisting.map(a => a.guid));
   const existingTitles = new Set(allExisting.map(a => a.title ? a.title.trim().toLowerCase().replace(/[^\w\s]/gi, '') : ''));
-  const existingLinks = new Set(allExisting.map(a => (a.link || '').split('?')[0].split('#')[0].trim().toLowerCase()).filter(Boolean));
+  const existingLinks = new Set(allExisting.map(a => normalizeLink(a.link || '')).filter(Boolean));
   let newArticlesInserted = 0;
 
   for (const feed of feeds) {
@@ -508,7 +521,7 @@ export async function fetchAllFeeds() {
         const title = stripHtml(item.title || "No Title").trim() || "No Title";
         const link = item.link || "";
         const normTitle = title.trim().toLowerCase().replace(/[^\w\s]/gi, '');
-        const normLink = link.split('?')[0].split('#')[0].trim().toLowerCase();
+        const normLink = normalizeLink(link);
 
         // Skip if already in DB (by GUID, title, or normalized link)
         if (existingGuids.has(guid) || (normTitle && existingTitles.has(normTitle)) || (normLink && existingLinks.has(normLink))) {

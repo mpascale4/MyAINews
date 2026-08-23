@@ -3,7 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { db } from "./src/db";
 import { articles, rssFeeds, interests, userBehavior, appSettings } from "./src/db/schema";
-import { seedInitialData, fetchAllFeeds, testFeedUrl, ensureScraperConfigForFeed } from "./src/lib/rss";
+import { seedInitialData, fetchAllFeeds, testFeedUrl, ensureScraperConfigForFeed, normalizeLink } from "./src/lib/rss";
 import { processArticleWithAI, generateFeedsWithAI, runProfileInterview, searchFeedsByKeyword } from "./src/lib/gemini";
 import { 
   getVapidPublicKey, 
@@ -112,7 +112,7 @@ async function startServer() {
       const seenLinks = new Set<string>();
       const uniqueResults: typeof results = [];
       for (const article of results) {
-        const normLink = article.link ? article.link.split('?')[0].split('#')[0].trim().toLowerCase() : '';
+        const normLink = article.link ? normalizeLink(article.link) : '';
         if (normLink && seenLinks.has(normLink)) continue;
         if (normLink) seenLinks.add(normLink);
         uniqueResults.push(article);
