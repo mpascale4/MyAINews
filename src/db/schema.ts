@@ -48,6 +48,9 @@ export const rssFeeds = sqliteTable("rss_feeds", {
   // Generated once by AI and reused on subsequent fetches to avoid calling the AI on every cycle.
   scraperConfig: text("scraper_config", { mode: 'json' }).$type<ScraperConfig>(),
   scraperFailCount: integer("scraper_fail_count").default(0),
+  // Short human-readable note on how/why this source was added (e.g. "Ricerca AI: Lucca").
+  // Null for sources added before this field existed.
+  addedVia: text("added_via"),
 });
 
 export const pushSubscriptions = sqliteTable("push_subscriptions", {

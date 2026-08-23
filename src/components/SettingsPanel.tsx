@@ -186,7 +186,7 @@ export default function SettingsPanel() {
       const res = await fetch('/api/feeds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: item.url, name: item.name, isManual: true })
+        body: JSON.stringify({ url: item.url, name: item.name, isManual: true, addedVia: `Ricerca AI: "${feedSearchKeyword.trim()}"` })
       });
       if (res.ok) {
         const data = await res.json();
@@ -488,7 +488,7 @@ export default function SettingsPanel() {
     await fetch('/api/feeds', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: newFeedUrl, name: newFeedName, isManual: true })
+      body: JSON.stringify({ url: newFeedUrl, name: newFeedName, isManual: true, addedVia: "Aggiunta manuale" })
     });
     setNewFeedUrl("");
     setNewFeedName("");

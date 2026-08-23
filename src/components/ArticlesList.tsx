@@ -89,7 +89,7 @@ export default function ArticlesList() {
   const [sort, setSort] = useState("Date");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string>("");
-  const [configuredFeeds, setConfiguredFeeds] = useState<{ id: number; name: string; url: string }[]>([]);
+  const [configuredFeeds, setConfiguredFeeds] = useState<{ id: number; name: string; url: string; addedVia?: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSummary, setSelectedSummary] = useState<Article | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -722,9 +722,18 @@ export default function ArticlesList() {
                   ? "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-400/40"
                   : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80"
               }`}
-              title={`Filtra per ${feed.name}`}
+              title={feed.addedVia ? `Filtra per ${feed.name} — aggiunta tramite: ${feed.addedVia}` : `Filtra per ${feed.name}`}
             >
               <span className="truncate max-w-[160px]">{feed.name}</span>
+              {feed.addedVia && (
+                <span
+                  className={`text-[9px] font-normal opacity-70 truncate max-w-[90px] ${
+                    isSelected ? "text-indigo-100" : "text-slate-400 dark:text-slate-500"
+                  }`}
+                >
+                  · {feed.addedVia}
+                </span>
+              )}
             </button>
           );
         })}

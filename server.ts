@@ -497,8 +497,9 @@ async function startServer() {
       const url = req.body.url ? req.body.url.trim().replace(/\/feed\/$/, '/feed') : '';
       const name = req.body.name ? req.body.name.trim() : '';
       const isManual = req.body.isManual !== undefined ? Boolean(req.body.isManual) : true;
+      const addedVia = req.body.addedVia ? String(req.body.addedVia).trim().slice(0, 200) : null;
       if (!url) return res.status(400).json({ error: "URL is required" });
-      const inserted = await db.insert(rssFeeds).values({ url, name, isManual }).returning({ id: rssFeeds.id });
+      const inserted = await db.insert(rssFeeds).values({ url, name, isManual, addedVia }).returning({ id: rssFeeds.id });
       const newFeedId = inserted[0]?.id;
       res.json({ success: true, id: newFeedId });
 
@@ -577,7 +578,8 @@ async function startServer() {
         const cleanedFeeds = req.body.feeds.map((f: any) => ({
           url: f.url ? f.url.trim().replace(/\/feed\/$/, '/feed') : '',
           name: f.name ? f.name.trim() : '',
-          isManual: f.isManual !== undefined ? Boolean(f.isManual) : false
+          isManual: f.isManual !== undefined ? Boolean(f.isManual) : false,
+          addedVia: f.addedVia ? String(f.addedVia).trim().slice(0, 200) : null
         })).filter((f: any) => f.url);
         if (cleanedFeeds.length > 0) {
           await db.insert(rssFeeds).values(cleanedFeeds).onConflictDoNothing();
@@ -613,14 +615,14 @@ async function startServer() {
       // Step 2: Query AI for new suggested feeds based on current interests and preserved manual feeds
       const suggestions = await generateFeedsWithAI(userInterests, manualFeeds);
 
-      const newFeedsToInsert: { url: string, name: string, isManual: boolean }[] = [];
+      const newFeedsToInsert: { url: string, name: string, isManual: boolean, addedVia: string }[] = [];
       const detailedResults = suggestions.map(s => {
         const cleanUrl = s.url.trim().replace(/\/feed\/$/, '/feed');
         const normalized = cleanUrl.toLowerCase().replace(/\/+$/, '');
         const isAlreadyManual = manualUrls.has(normalized);
         const isNew = !isAlreadyManual;
         if (isNew && !newFeedsToInsert.some(n => n.url.toLowerCase().replace(/\/+$/, '') === normalized)) {
-          newFeedsToInsert.push({ url: cleanUrl, name: s.name, isManual: false });
+          newFeedsToInsert.push({ url: cleanUrl, name: s.name, isManual: false, addedVia: "AI in base ai tuoi interessi" });
         }
         return {
           ...s,
@@ -775,7 +777,7 @@ async function startServer() {
           if (url && name) {
             const existing = await db.select().from(rssFeeds).where(eq(rssFeeds.url, url)).get();
             if (!existing) {
-              await db.insert(rssFeeds).values({ url, name, isManual: true });
+              await db.insert(rssFeeds).values({ url, name, isManual: true, addedVia: "Intervista iniziale" });
             }
           }
         }
