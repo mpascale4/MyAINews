@@ -23,7 +23,8 @@ import {
   RotateCcw,
   Compass,
   Loader2,
-  Plus
+  Plus,
+  Trash2
 } from "lucide-react";
 import ArticleCardItem from "./ArticleCardItem";
 import FormattedSummary from "./FormattedSummary";
@@ -419,6 +420,28 @@ export default function ArticlesList() {
     }
   };
 
+  const [isRemovingSource, setIsRemovingSource] = useState(false);
+
+  const handleRemoveSelectedSource = async () => {
+    const feed = configuredFeeds.find(f => f.name === selectedSource);
+    if (!feed) return;
+    if (!window.confirm(`Vuoi rimuovere definitivamente la sorgente "${feed.name}"?`)) return;
+
+    setIsRemovingSource(true);
+    try {
+      const res = await fetch(`/api/feeds/${feed.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      setConfiguredFeeds(prev => prev.filter(f => f.id !== feed.id));
+      setSelectedSource("");
+      fetchArticles();
+    } catch (err: any) {
+      console.error("Error removing source:", err);
+      setTransformerFeedback("Errore durante la rimozione della sorgente. Riprova.");
+    } finally {
+      setIsRemovingSource(false);
+    }
+  };
+
   const top10Sources = React.useMemo(() => {
     const list = configuredFeeds.map(f => f.name);
 
@@ -731,14 +754,24 @@ export default function ArticlesList() {
 
           {selectedSource && (
             <div className="space-y-2">
-              <button
-                onClick={handleCreateTransformerForSelectedSource}
-                disabled={isCreatingTransformer}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
-              >
-                {isCreatingTransformer ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                Prova a creare trasformatore per "{selectedSource}"
-              </button>
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                <button
+                  onClick={handleCreateTransformerForSelectedSource}
+                  disabled={isCreatingTransformer}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {isCreatingTransformer ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  Prova a creare trasformatore per "{selectedSource}"
+                </button>
+                <button
+                  onClick={handleRemoveSelectedSource}
+                  disabled={isRemovingSource}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {isRemovingSource ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  Rimuovi sorgente
+                </button>
+              </div>
               {transformerFeedback && (
                 <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400 max-w-md mx-auto">{transformerFeedback}</p>
               )}
