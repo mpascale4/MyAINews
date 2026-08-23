@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Interest, Feed, SuggestedFeed } from "../types";
 import { 
   Plus, Trash2, Rss, Hash, Sparkles, X, CheckCircle2, Globe, Compass, 
-  Loader2, UserCheck, Bot, Info, ShieldCheck, RefreshCw, Bell, BellRing, Sliders, Check, AlertTriangle
+  Loader2, UserCheck, Bot, Info, ShieldCheck, RefreshCw, Bell, BellRing, Sliders, Check, AlertTriangle, Download, Upload
 } from "lucide-react";
 
 export interface WeeklyTopic {
@@ -614,6 +614,66 @@ export default function SettingsPanel() {
     }
   };
 
+  const handleExportFeeds = () => {
+    const exportData = feeds.map(f => ({
+      url: f.url,
+      name: f.name,
+      addedVia: f.addedVia || null
+    }));
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `myainews-sorgenti-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const importFileInputRef = useRef<HTMLInputElement>(null);
+  const [importFeedback, setImportFeedback] = useState<string | null>(null);
+
+  const handleImportFeedsClick = () => {
+    importFileInputRef.current?.click();
+  };
+
+  const handleImportFeedsFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) throw new Error("Il file deve contenere un array di sorgenti.");
+      const cleaned = parsed
+        .filter((f: any) => f && typeof f.url === 'string' && f.url.trim())
+        .map((f: any) => ({
+          url: f.url.trim(),
+          name: f.name ? String(f.name).trim() : f.url.trim(),
+          isManual: true,
+          addedVia: f.addedVia ? String(f.addedVia).trim() : null
+        }));
+      if (cleaned.length === 0) throw new Error("Nessuna sorgente valida trovata nel file.");
+
+      const res = await fetch('/api/feeds/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feeds: cleaned })
+      });
+      if (!res.ok) throw new Error("Errore del server durante l'importazione.");
+
+      const freshFeeds = await fetch('/api/feeds').then(r => r.json());
+      setFeeds(freshFeeds);
+      window.dispatchEvent(new CustomEvent('refresh-articles'));
+      setImportFeedback(`Importate ${cleaned.length} sorgenti con successo.`);
+      setTimeout(() => setImportFeedback(null), 5000);
+    } catch (err: any) {
+      setImportFeedback(`Errore: ${err.message || "file non valido."}`);
+      setTimeout(() => setImportFeedback(null), 6000);
+    }
+  };
+
   const manualFeedsCount = feeds.length;
   const autoFeedsCount = 0;
 
@@ -634,7 +694,44 @@ export default function SettingsPanel() {
                Gestisci i tuoi feed RSS e Google News attivi per raccogliere notizie aggiornate.
              </p>
            </div>
+           <div className="flex items-center gap-2 shrink-0">
+             <button
+               type="button"
+               onClick={handleExportFeeds}
+               disabled={feeds.length === 0}
+               className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+               title="Esporta tutte le sorgenti (URL e chiave di ricerca) in un file JSON"
+             >
+               <Download className="w-3.5 h-3.5" /> Esporta
+             </button>
+             <button
+               type="button"
+               onClick={handleImportFeedsClick}
+               className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+               title="Importa sorgenti da un file JSON esportato in precedenza"
+             >
+               <Upload className="w-3.5 h-3.5" /> Importa
+             </button>
+             <input
+               ref={importFileInputRef}
+               type="file"
+               accept="application/json"
+               onChange={handleImportFeedsFile}
+               className="hidden"
+             />
+           </div>
          </div>
+
+         {importFeedback && (
+           <div className={`mb-4 p-3 rounded-xl text-xs font-medium flex items-center gap-2 ${
+             importFeedback.startsWith('Errore')
+               ? "bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300"
+               : "bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
+           }`}>
+             {importFeedback.startsWith('Errore') ? <X className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+             <span>{importFeedback}</span>
+           </div>
+         )}
 
           {/* AI Feed Search by Keyword (e.g. Lucca) */}
           <div className="mb-8 p-5 bg-indigo-50/60 dark:bg-indigo-950/30 rounded-2xl border border-indigo-200 dark:border-indigo-800/60">

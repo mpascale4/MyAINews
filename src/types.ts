@@ -30,6 +30,7 @@ export interface Feed {
   url: string;
   name: string;
   isManual?: boolean;
+  addedVia?: string | null;
 }
 
 export interface SuggestedFeed {
