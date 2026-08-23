@@ -31,9 +31,9 @@ import FormattedSummary from "./FormattedSummary";
 import ConfirmOverlay from "./ConfirmOverlay";
 import { getSourceAccent, getSourceInitial, registerSourceNames } from "../lib/sourceStyle";
 
-function HiddenArticlePlaceholder({ article, onUndo }: { article: Article; onUndo: () => void | Promise<void>; key?: any }) {
-  const [timeLeft, setTimeLeft] = useState(6);
-  
+function HiddenArticleToast({ article, onUndo }: { article: Article; onUndo: () => void | Promise<void> }) {
+  const [timeLeft, setTimeLeft] = useState(3);
+
   useEffect(() => {
     const interval = setInterval(() => {
       setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
@@ -42,42 +42,26 @@ function HiddenArticlePlaceholder({ article, onUndo }: { article: Article; onUnd
   }, []);
 
   return (
-    <div className="relative h-full min-h-[300px] flex flex-col justify-between p-6 bg-slate-900 text-white rounded-2xl border-2 border-indigo-500/30 overflow-hidden shadow-lg transition-all duration-300 animate-in fade-in zoom-in-95">
-      {/* Background visual element */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-      
-      <div className="space-y-4">
-        <div className="flex items-center gap-2.5 text-indigo-400 font-bold uppercase tracking-wider text-[11px]">
-          <EyeOff className="w-4 h-4" />
-          <span>Notizia Nascosta</span>
-        </div>
-        
-        <div className="space-y-1.5">
-          <p className="text-sm font-bold leading-snug line-clamp-3 text-slate-100">
-            {article.title}
-          </p>
-          <p className="text-xs text-slate-400">
-            Questa notizia non comparirà più nel tuo feed personalizzato.
-          </p>
-        </div>
+    <div className="w-72 max-w-[calc(100vw-2rem)] p-4 bg-slate-900 text-white rounded-2xl border-2 border-indigo-500/30 overflow-hidden shadow-2xl animate-in slide-in-from-left-4 fade-in duration-300">
+      <div className="flex items-center gap-2.5 text-indigo-400 font-bold uppercase tracking-wider text-[11px] mb-1.5">
+        <EyeOff className="w-4 h-4" />
+        <span>Notizia Nascosta</span>
       </div>
-
-      <div className="space-y-4 pt-4 border-t border-slate-800 shrink-0">
-        <button
-          onClick={onUndo}
-          className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
-        >
-          <RotateCcw className="w-4 h-4" />
-          <span>Annulla (Riavvia in {timeLeft}s)</span>
-        </button>
-        
-        {/* Animated Progress Bar */}
-        <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-indigo-500 transition-all duration-1000 ease-linear" 
-            style={{ width: `${(timeLeft / 6) * 100}%` }}
-          />
-        </div>
+      <p className="text-xs font-semibold leading-snug line-clamp-2 text-slate-100 mb-3">
+        {article.title}
+      </p>
+      <button
+        onClick={onUndo}
+        className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+      >
+        <RotateCcw className="w-3.5 h-3.5" />
+        <span>Annulla ({timeLeft}s)</span>
+      </button>
+      <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden mt-2">
+        <div
+          className="h-full bg-indigo-500 transition-all duration-1000 ease-linear"
+          style={{ width: `${(timeLeft / 3) * 100}%` }}
+        />
       </div>
     </div>
   );
@@ -124,8 +108,8 @@ export default function ArticlesList() {
   const [tagSearchFeedback, setTagSearchFeedback] = useState<string | null>(null);
   const [allAddedFeeds, setAllAddedFeeds] = useState<Record<string, boolean>>({});
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-  const [hiddenArticle, setHiddenArticle] = useState<Article | null>(null);
   const [recentlyHiddenIds, setRecentlyHiddenIds] = useState<Record<number, boolean>>({});
+  const [recentlyHiddenQueue, setRecentlyHiddenQueue] = useState<Article[]>([]);
   const [infoModalArticle, setInfoModalArticle] = useState<Article | null>(null);
 
   // Fetch all added feeds
@@ -155,15 +139,12 @@ export default function ArticlesList() {
       delete updated[id];
       return updated;
     });
+    const article = recentlyHiddenQueue.find(a => a.id === id);
+    setRecentlyHiddenQueue(prev => prev.filter(a => a.id !== id));
+    if (article) {
+      setArticles(prev => [article, ...prev]);
+    }
     await fetch(`/api/articles/${id}/unhide`, { method: "POST" });
-  };
-
-  const undoHideArticle = async () => {
-    if (!hiddenArticle) return;
-    const articleToRestore = hiddenArticle;
-    setHiddenArticle(null);
-    setArticles(prev => [articleToRestore, ...prev]);
-    await fetch(`/api/articles/${articleToRestore.id}/unhide`, { method: "POST" });
   };
 
   // Pull to refresh state
@@ -487,25 +468,28 @@ export default function ArticlesList() {
   const hideArticle = async (id: number) => {
     const article = articles.find(a => a.id === id);
     if (!article) return;
-    
-    // Set as recently hidden to render inline placeholder
+
+    // Remove immediately from the main list so it doesn't shift while reading others,
+    // and show an undo toast instead of an inline placeholder.
+    setArticles(prev => prev.filter(a => a.id !== id));
     setRecentlyHiddenIds(prev => ({ ...prev, [id]: true }));
-    
+    setRecentlyHiddenQueue(prev => [...prev, article]);
+
     // Call hide API immediately
     await fetch(`/api/articles/${id}/hide`, { method: "POST" });
-    
-    // In 6 seconds, if it has not been restored, remove it from the articles array and clean up the state
+
+    // In 3 seconds, if it has not been restored, drop it from the undo toast queue
     setTimeout(() => {
       setRecentlyHiddenIds(prev => {
         if (prev[id]) {
-          setArticles(currentArticles => currentArticles.filter(a => a.id !== id));
           const updated = { ...prev };
           delete updated[id];
           return updated;
         }
         return prev;
       });
-    }, 6000);
+      setRecentlyHiddenQueue(prev => prev.filter(a => a.id !== id));
+    }, 3000);
   };
 
   const handleShareArticle = async (article: Article, e?: React.MouseEvent) => {
@@ -818,34 +802,36 @@ export default function ArticlesList() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {articles.slice(0, visibleCount).map((article) => {
-              const isRecentlyHidden = recentlyHiddenIds[article.id];
-              if (isRecentlyHidden) {
-                return (
-                  <HiddenArticlePlaceholder 
-                    key={article.id} 
-                    article={article} 
-                    onUndo={() => undoHideArticleInline(article.id)} 
-                  />
-                );
-              }
-              return (
-                <ArticleCardItem
-                  key={article.id}
-                  article={article}
-                  isTagExcluded={isTagExcluded}
-                  selectedTag={selectedTag}
-                  onTagClick={(tag) => setTagModal({ tag })}
-                  onOpenSummary={handleOpenSummary}
-                  onToggleRead={toggleReadArticle}
-                  onToggleSave={toggleSaveArticle}
-                  onHide={hideArticle}
-                  onShare={handleShareArticle}
-                  onOpenInfo={(art) => setInfoModalArticle(art)}
-                />
-              );
-            })}
+            {articles.slice(0, visibleCount).map((article) => (
+              <ArticleCardItem
+                key={article.id}
+                article={article}
+                isTagExcluded={isTagExcluded}
+                selectedTag={selectedTag}
+                onTagClick={(tag) => setTagModal({ tag })}
+                onOpenSummary={handleOpenSummary}
+                onToggleRead={toggleReadArticle}
+                onToggleSave={toggleSaveArticle}
+                onHide={hideArticle}
+                onShare={handleShareArticle}
+                onOpenInfo={(art) => setInfoModalArticle(art)}
+              />
+            ))}
           </div>
+
+          {/* Undo-hide toasts, stacked bottom-left */}
+          {recentlyHiddenQueue.length > 0 && (
+            <div className="fixed bottom-4 left-4 z-[80] flex flex-col-reverse gap-2 pointer-events-none">
+              {recentlyHiddenQueue.slice(-3).map((article) => (
+                <div key={article.id} className="pointer-events-auto">
+                  <HiddenArticleToast
+                    article={article}
+                    onUndo={() => undoHideArticleInline(article.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
           {articles.length > visibleCount && (
             <div 

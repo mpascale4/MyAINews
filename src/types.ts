@@ -15,6 +15,7 @@ export interface Article {
   isSaved?: boolean;
   savedAt?: string | null;
   readAt: string | null;
+  hiddenAt?: string | null;
   createdAt: string;
 }
 

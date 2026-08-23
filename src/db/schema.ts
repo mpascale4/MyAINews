@@ -20,6 +20,7 @@ export const articles = sqliteTable("articles", {
   isNotified: integer("is_notified", { mode: 'boolean' }).default(false),
   savedAt: text("saved_at"),
   readAt: text("read_at"),
+  hiddenAt: text("hidden_at"),
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 

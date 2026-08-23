@@ -66,6 +66,10 @@ async function startServer() {
       
       const conditions = [eq(articles.isHidden, false)];
 
+      // Exclude articles whose source has been explicitly excluded via a negative interest
+      const negativeInterests = await db.select().from(interests).where(eq(interests.type, "negative"));
+      const excludedSources = new Set(negativeInterests.map(i => i.keyword.toLowerCase().trim()));
+
       if (source) {
         // Se una specifica sorgente è selezionata, mostra tutte le sue notizie senza alcun altro filtro (tag, read/unread, data, ecc.)
         // ma le notizie salvate in "Leggi dopo" restano comunque escluse dalla lista principale
@@ -114,6 +118,12 @@ async function startServer() {
       }
 
       let results = await query.orderBy(desc(articles.pubDate)).limit(200); // Increased limit for better coverage
+
+      // Exclude articles whose source has been explicitly excluded via a negative interest
+      // (unless the user explicitly asked to view that specific source's articles)
+      if (!source && excludedSources.size > 0) {
+        results = results.filter(a => !excludedSources.has((a.source || "").toLowerCase().trim()));
+      }
 
       // Deduplicate articles mainly by link, and be more careful with title deduplication
       const seenLinks = new Set<string>();
@@ -270,7 +280,7 @@ async function startServer() {
     try {
       const id = parseInt(req.params.id);
       await db.update(articles)
-        .set({ isHidden: true })
+        .set({ isHidden: true, hiddenAt: new Date().toISOString() })
         .where(eq(articles.id, id));
         
       // Record behavior
@@ -279,7 +289,19 @@ async function startServer() {
         action: "ignored",
         timeSpent: 0
       });
-        
+
+      // Keep the trash bounded to the most recent 500 hidden articles
+      const hiddenArticles = await db.select({ id: articles.id, hiddenAt: articles.hiddenAt })
+        .from(articles)
+        .where(eq(articles.isHidden, true));
+      if (hiddenArticles.length > 500) {
+        const sorted = hiddenArticles.sort((a, b) => (a.hiddenAt || "").localeCompare(b.hiddenAt || ""));
+        const toDelete = sorted.slice(0, hiddenArticles.length - 500).map(a => a.id);
+        for (const delId of toDelete) {
+          await db.delete(articles).where(eq(articles.id, delId));
+        }
+      }
+
       res.json({ success: true });
     } catch (err) {
       console.error(err);
@@ -291,10 +313,23 @@ async function startServer() {
     try {
       const id = parseInt(req.params.id);
       await db.update(articles)
-        .set({ isHidden: false })
+        .set({ isHidden: false, hiddenAt: null })
         .where(eq(articles.id, id));
         
       res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  });
+
+  // Trash: list hidden articles (most recently hidden first), bounded to 500
+  app.get("/api/articles/trash", async (req, res) => {
+    try {
+      const hiddenArticles = await db.select().from(articles)
+        .where(eq(articles.isHidden, true))
+        .orderBy(desc(articles.hiddenAt));
+      res.json(hiddenArticles.slice(0, 500));
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Internal Server Error" });

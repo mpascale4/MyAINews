@@ -6,11 +6,12 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { BookOpen, Home, Settings, BarChart2, Bell, Sun, Moon, RefreshCw, Sparkles, Calendar, X, CheckCircle2, Bookmark } from "lucide-react";
+import { BookOpen, Home, Settings, BarChart2, Bell, Sun, Moon, RefreshCw, Sparkles, Calendar, X, CheckCircle2, Bookmark, Trash2 } from "lucide-react";
 import ArticlesList from "./components/ArticlesList";
 import ReadLaterPage from "./components/ReadLaterPage";
 import Dashboard from "./components/Dashboard";
 import SettingsPanel from "./components/SettingsPanel";
+import TrashPage from "./components/TrashPage";
 import Onboarding from "./components/Onboarding";
 import { useTheme } from "./lib/theme";
 
@@ -152,6 +153,17 @@ export default function App() {
             Dashboard
           </button>
           <button
+            onClick={() => setActiveTab("trash")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer ${
+              activeTab === "trash"
+                ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-medium"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+            }`}
+          >
+            <Trash2 className="w-5 h-5" />
+            Cestino
+          </button>
+          <button
             onClick={() => setActiveTab("settings")}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer ${
               activeTab === "settings"
@@ -198,6 +210,8 @@ export default function App() {
                   ? "Leggi Dopo" 
                   : activeTab === "dashboard" 
                   ? "Statistiche" 
+                  : activeTab === "trash"
+                  ? "Cestino"
                   : "Sorgenti Feed"}
              </h2>
            </div>
@@ -231,6 +245,7 @@ export default function App() {
            {activeTab === "home" && <ArticlesList />}
            {activeTab === "saved" && <ReadLaterPage onNavigateHome={() => setActiveTab("home")} />}
            {activeTab === "dashboard" && <Dashboard />}
+           {activeTab === "trash" && <TrashPage />}
            {activeTab === "settings" && <SettingsPanel />}
         </div>
       </main>
@@ -263,6 +278,15 @@ export default function App() {
         >
           <BarChart2 className="w-5 h-5" />
           <span className="text-[10px] font-medium">Dashboard</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("trash")}
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 cursor-pointer ${
+            activeTab === "trash" ? "text-indigo-600 dark:text-indigo-400 font-semibold" : "text-slate-500 dark:text-slate-400"
+          }`}
+        >
+          <Trash2 className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Cestino</span>
         </button>
         <button
           onClick={() => setActiveTab("settings")}
