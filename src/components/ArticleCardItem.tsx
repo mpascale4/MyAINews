@@ -201,28 +201,6 @@ export default function ArticleCardItem({
                 {article.pubDate ? format(new Date(article.pubDate), "d MMM, HH:mm", { locale: it }) : ''}
               </span>
 
-              {/* Bookmark / Leggi dopo Button */}
-              {onToggleSave && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleSave(article);
-                  }}
-                  className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                    article.isSaved
-                      ? "text-amber-500 hover:text-amber-600 bg-amber-50 dark:bg-amber-950/60 dark:text-amber-400"
-                      : "text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50/60 dark:hover:bg-amber-950/40"
-                  }`}
-                  title={article.isSaved ? "Rimuovi da Leggi dopo" : "Salva in Leggi dopo"}
-                >
-                  {article.isSaved ? (
-                    <BookmarkCheck className="w-4 h-4 fill-amber-500 dark:fill-amber-400" />
-                  ) : (
-                    <Bookmark className="w-4 h-4" />
-                  )}
-                </button>
-              )}
-
               {/* Quick Share Button on Card */}
               <button 
                 onClick={(e) => onShare(article, e)}
@@ -234,7 +212,7 @@ export default function ArticleCardItem({
             </div>
           </div>
           
-          {/* Info & Nascondi Buttons Row above Title */}
+          {/* Info, Leggi dopo & Nascondi Buttons Row above Title */}
           <div className="flex items-center gap-1.5 mb-2 shrink-0">
             {/* Info Button */}
             {onOpenInfo && (
@@ -248,6 +226,29 @@ export default function ArticleCardItem({
               >
                 <Info className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                 <span>Info</span>
+              </button>
+            )}
+
+            {/* Bookmark / Leggi dopo Button */}
+            {onToggleSave && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleSave(article);
+                }}
+                className={`flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer px-2 py-1 rounded-lg border ${
+                  article.isSaved
+                    ? "text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 border-amber-200/70 dark:border-amber-800/70"
+                    : "text-slate-600 hover:text-amber-600 dark:text-slate-300 dark:hover:text-amber-400 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-slate-200/70 dark:border-slate-700/70"
+                }`}
+                title={article.isSaved ? "Rimuovi da Leggi dopo" : "Salva in Leggi dopo"}
+              >
+                {article.isSaved ? (
+                  <BookmarkCheck className="w-3.5 h-3.5 fill-amber-500 dark:fill-amber-400" />
+                ) : (
+                  <Bookmark className="w-3.5 h-3.5" />
+                )}
+                <span>Leggi dopo</span>
               </button>
             )}
 

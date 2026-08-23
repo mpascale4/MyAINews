@@ -68,7 +68,9 @@ async function startServer() {
 
       if (source) {
         // Se una specifica sorgente è selezionata, mostra tutte le sue notizie senza alcun altro filtro (tag, read/unread, data, ecc.)
+        // ma le notizie salvate in "Leggi dopo" restano comunque escluse dalla lista principale
         conditions.push(eq(articles.source, source));
+        conditions.push(eq(articles.isSaved, false));
       } else {
         if (tag) {
           conditions.push(like(articles.aiTags, `%${tag}%`));
@@ -76,7 +78,12 @@ async function startServer() {
 
         if (filter === "Unread") conditions.push(eq(articles.isRead, false));
         if (filter === "Read") conditions.push(eq(articles.isRead, true));
-        if (filter === "Saved" || filter === "Read Later" || filter === "Leggi dopo") conditions.push(eq(articles.isSaved, true));
+        if (filter === "Saved" || filter === "Read Later" || filter === "Leggi dopo") {
+          conditions.push(eq(articles.isSaved, true));
+        } else {
+          // Le notizie salvate in "Leggi dopo" non devono comparire nella lista principale
+          conditions.push(eq(articles.isSaved, false));
+        }
         if (filter === "AI") conditions.push(gte(articles.aiRelevance, 75)); // Arbitrary threshold
         if (filter === "Local News") {
            conditions.push(or(
