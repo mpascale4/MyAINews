@@ -98,6 +98,42 @@ export default function SettingsPanel() {
   const [feedSearchResults, setFeedSearchResults] = useState<{ name: string; url: string; reason: string; category: string }[]>([]);
   const [feedSearchLoading, setFeedSearchLoading] = useState(false);
   const [feedSearchFeedback, setFeedSearchFeedback] = useState<string | null>(null);
+  const [suggestedFeedTestResults, setSuggestedFeedTestResults] = useState<Record<string, {
+    loading: boolean;
+    isValidRss?: boolean;
+    isScrapeableHtml?: boolean;
+    itemCount?: number;
+    error?: string;
+  }>>({});
+
+  // Normalizes a feed URL for "already added" comparisons: strips trailing
+  // slashes and protocol so http/https or trailing-slash variants still match.
+  const normalizeFeedUrl = (url: string) => url.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+
+  const existingFeedUrls = React.useMemo(
+    () => new Set(feeds.map(f => normalizeFeedUrl(f.url))),
+    [feeds]
+  );
+
+  const testSuggestedFeed = async (url: string) => {
+    setSuggestedFeedTestResults(prev => ({ ...prev, [url]: { loading: true } }));
+    try {
+      const res = await fetch('/api/feeds/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const data = res.ok ? await res.json() : null;
+      setSuggestedFeedTestResults(prev => ({
+        ...prev,
+        [url]: data
+          ? { loading: false, isValidRss: data.isValidRss, isScrapeableHtml: data.isScrapeableHtml, itemCount: data.itemCount, error: data.error }
+          : { loading: false, error: "Errore di connessione durante il test." }
+      }));
+    } catch (e) {
+      setSuggestedFeedTestResults(prev => ({ ...prev, [url]: { loading: false, error: "Errore imprevisto durante il test." } }));
+    }
+  };
 
   const searchFeedsAI = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,6 +160,26 @@ export default function SettingsPanel() {
     }
   };
 
+  const playAddSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.25);
+    } catch (e) {
+      // Web Audio API not available/blocked: fail silently, sound feedback is a nice-to-have.
+    }
+  };
+
   const addSearchedFeedManually = async (item: { name: string; url: string; reason: string; category: string }) => {
     try {
       const res = await fetch('/api/feeds', {
@@ -132,9 +188,18 @@ export default function SettingsPanel() {
         body: JSON.stringify({ url: item.url, name: item.name, isManual: true })
       });
       if (res.ok) {
+        const data = await res.json();
         loadData();
-        setFeedSearchFeedback(`Sorgente "${item.name}" aggiunta con successo!`);
-        setTimeout(() => setFeedSearchFeedback(null), 5000);
+        playAddSound();
+        // If the RSS URL wasn't valid but the page is scrapeable, the server
+        // generates an ad-hoc HTML transformer in the background right after
+        // insertion (fire-and-forget); mention that here for HTML-type sources.
+        setFeedSearchFeedback(
+          `Sorgente "${item.name}" aggiunta con successo (feed #${data.id})! ${
+            !item.reason?.toLowerCase().includes("rss") ? "Se non è un RSS valido, verrà creato automaticamente un trasformatore ad-hoc per estrarre le notizie dalla pagina HTML." : ""
+          }`
+        );
+        setTimeout(() => setFeedSearchFeedback(null), 6000);
         setFeedSearchResults(prev => prev.filter(f => f.url !== item.url));
         // Notify other components (like ArticlesList) that sources changed
         window.dispatchEvent(new CustomEvent('refresh-articles'));
@@ -554,27 +619,64 @@ export default function SettingsPanel() {
                    Risultati Trovati dall'AI (Clicca per aggiungere come manuale):
                  </span>
                  <div className="space-y-2">
-                   {feedSearchResults.map((item, idx) => (
-                     <div key={idx} className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-indigo-100 dark:border-indigo-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                       <div className="min-w-0 flex-1">
-                         <div className="flex items-center gap-2 flex-wrap">
-                           <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{item.name}</span>
-                           <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
-                             {item.category}
-                           </span>
+                   {feedSearchResults.map((item, idx) => {
+                     const alreadyAdded = existingFeedUrls.has(normalizeFeedUrl(item.url));
+                     const testState = suggestedFeedTestResults[item.url];
+                     return (
+                     <div key={idx} className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-indigo-100 dark:border-indigo-900/60 flex flex-col gap-3 shadow-xs">
+                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                         <div className="min-w-0 flex-1">
+                           <div className="flex items-center gap-2 flex-wrap">
+                             <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{item.name}</span>
+                             <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                               {item.category}
+                             </span>
+                             {alreadyAdded && (
+                               <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                                 <CheckCircle2 className="w-3 h-3" /> Già aggiunta
+                               </span>
+                             )}
+                           </div>
+                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{item.reason}</p>
+                           <p className="text-[11px] text-slate-400 font-mono truncate mt-1">{item.url}</p>
                          </div>
-                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{item.reason}</p>
-                         <p className="text-[11px] text-slate-400 font-mono truncate mt-1">{item.url}</p>
+                         <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                           <button
+                             type="button"
+                             onClick={() => testSuggestedFeed(item.url)}
+                             disabled={testState?.loading}
+                             className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-60"
+                           >
+                             {testState?.loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />} Testa
+                           </button>
+                           {!alreadyAdded && (
+                             <button
+                               type="button"
+                               onClick={() => addSearchedFeedManually(item)}
+                               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                             >
+                               <Plus className="w-3.5 h-3.5" /> Aggiungi
+                             </button>
+                           )}
+                         </div>
                        </div>
-                       <button
-                         type="button"
-                         onClick={() => addSearchedFeedManually(item)}
-                         className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 self-end sm:self-center shadow-xs"
-                       >
-                         <Plus className="w-3.5 h-3.5" /> Aggiungi (Manuale)
-                       </button>
+                       {testState && !testState.loading && (
+                         <div className={`text-xs font-medium rounded-lg px-3 py-2 flex items-center gap-2 ${
+                           (testState.isValidRss && (testState.itemCount || 0) > 0) || testState.isScrapeableHtml
+                             ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300"
+                             : "bg-red-50 dark:bg-red-950/50 text-red-800 dark:text-red-300"
+                         }`}>
+                           {(testState.isValidRss && (testState.itemCount || 0) > 0) ? (
+                             <>✓ RSS valido, {testState.itemCount} articoli trovati</>
+                           ) : testState.isScrapeableHtml ? (
+                             <>✓ Pagina HTML analizzabile (nessun RSS diretto): verrà creato automaticamente un trasformatore ad-hoc all'aggiunta</>
+                           ) : (
+                             <>✗ {testState.error || "Sorgente non raggiungibile o vuota"}</>
+                           )}
+                         </div>
+                       )}
                      </div>
-                   ))}
+                   )})}
                  </div>
                </div>
              )}

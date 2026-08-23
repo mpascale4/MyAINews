@@ -499,11 +499,11 @@ async function startServer() {
       const isManual = req.body.isManual !== undefined ? Boolean(req.body.isManual) : true;
       if (!url) return res.status(400).json({ error: "URL is required" });
       const inserted = await db.insert(rssFeeds).values({ url, name, isManual }).returning({ id: rssFeeds.id });
-      res.json({ success: true });
+      const newFeedId = inserted[0]?.id;
+      res.json({ success: true, id: newFeedId });
 
       // Fire-and-forget: if the RSS feed turns out to be invalid but the page is
       // scrapeable, generate and save an ad-hoc HTML transformer right away.
-      const newFeedId = inserted[0]?.id;
       if (newFeedId) {
         ensureScraperConfigForFeed(newFeedId, url, name || url).catch((e: any) => {
           console.warn("Background ad-hoc transformer setup failed:", e.message || e);
