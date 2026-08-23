@@ -173,9 +173,9 @@ export default function ArticleCardItem({
       >
         <div className="p-5 flex flex-col flex-1">
           {/* Header Row: Source, Date, Bookmark & Share */}
-          <div className="flex items-center justify-between mb-3">
+          <div className={`flex items-center justify-between mb-3 -mx-5 -mt-5 px-5 py-3 rounded-t-2xl ${sourceAccent.bg}`}>
             <div
-              className={`flex items-center gap-1.5 min-w-0 mr-2 pl-1 pr-2.5 py-1 rounded-full ${sourceAccent.bg}`}
+              className="flex items-center gap-1.5 min-w-0 mr-2"
             >
               <span
                 className="w-4 h-4 flex items-center justify-center shrink-0"
@@ -197,7 +197,7 @@ export default function ArticleCardItem({
               </span>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <span className="text-xs text-slate-400 dark:text-slate-500 mr-1">
+              <span className={`text-xs mr-1 ${sourceAccent.text} opacity-70`}>
                 {article.pubDate ? format(new Date(article.pubDate), "d MMM, HH:mm", { locale: it }) : ''}
               </span>
 
