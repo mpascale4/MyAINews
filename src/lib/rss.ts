@@ -221,6 +221,7 @@ export async function testFeedUrl(url: string): Promise<{
   detectedName?: string;
   itemCount?: number;
   sampleItems?: any[];
+  transformerCreated?: boolean;
   error?: string;
 }> {
   try {
@@ -252,7 +253,24 @@ export async function testFeedUrl(url: string): Promise<{
     const trimmed = text.trim();
     if (trimmed.startsWith('<!DOCTYPE html') || trimmed.startsWith('<html') || trimmed.toLowerCase().includes('<html')) {
       const cleaned = cleanHtmlForAI(text);
-      return { isValidRss: false, isScrapeableHtml: cleaned.length > 500 };
+      if (cleaned.length <= 500) {
+        return { isValidRss: false, isScrapeableHtml: false, error: "Pagina HTML troppo semplice o vuota per essere analizzata." };
+      }
+
+      // Actually try to build the ad-hoc transformer now, so we can tell the
+      // user upfront whether adding this source will really work.
+      try {
+        const config = await generateScraperConfig(url, cleaned, url);
+        if (config) {
+          const items = applyScraperConfig(text, url, config);
+          if (items.length > 0) {
+            return { isValidRss: false, isScrapeableHtml: true, transformerCreated: true, itemCount: items.length };
+          }
+        }
+        return { isValidRss: false, isScrapeableHtml: false, transformerCreated: false, error: "Impossibile creare un trasformatore funzionante per questa pagina." };
+      } catch (e: any) {
+        return { isValidRss: false, isScrapeableHtml: false, transformerCreated: false, error: e.message || "Errore durante la creazione del trasformatore." };
+      }
     }
 
     try {

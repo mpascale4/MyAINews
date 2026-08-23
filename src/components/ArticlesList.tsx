@@ -55,7 +55,7 @@ function HiddenArticlePlaceholder({ article, onUndo }: { article: Article; onUnd
             {article.title}
           </p>
           <p className="text-xs text-slate-400">
-            Questa notizia non comparirÃ  piÃ¹ nel tuo feed personalizzato.
+            Questa notizia non comparirà più nel tuo feed personalizzato.
           </p>
         </div>
       </div>
@@ -462,7 +462,7 @@ export default function ArticlesList() {
       if (selectedSummary && selectedSummary.id === article.id) {
         setSelectedSummary(null);
       }
-      setFeedbackMessage("Articolo salvato in 'Leggi dopo' e rimosso dal feed ðŸ“Œ");
+      setFeedbackMessage("Articolo salvato in 'Leggi dopo' e rimosso dal feed 📌");
     } else {
       setArticles(prev => prev.map(a => a.id === article.id ? { ...a, isSaved: false } : a));
       if (selectedSummary && selectedSummary.id === article.id) {
@@ -552,7 +552,7 @@ export default function ArticlesList() {
         setArticles(prev => prev.map(a => a.id === id ? { ...a, aiSummary: data.aiSummary, aiTags: data.aiTags, aiRelevance: data.aiRelevance } : a));
         setSelectedSummary(prev => prev ? { ...prev, aiSummary: data.aiSummary, aiTags: data.aiTags, aiRelevance: data.aiRelevance } : null);
       } else {
-        setSummaryError("Impossibile generare il riassunto. Riprova piÃ¹ tardi.");
+        setSummaryError("Impossibile generare il riassunto. Riprova più tardi.");
       }
     } catch (e) {
       console.error(e);
@@ -562,7 +562,7 @@ export default function ArticlesList() {
   };
 
   const generateSummary = async (id: number) => {
-    if (!window.confirm("Vuoi rigenerare il riassunto di questo articolo? Il riassunto precedente verrÃ  sovrascritto.")) {
+    if (!window.confirm("Vuoi rigenerare il riassunto di questo articolo? Il riassunto precedente verrà sovrascritto.")) {
       return;
     }
     await autoGenerateSummary(id);
@@ -675,13 +675,13 @@ export default function ArticlesList() {
             </button>
           ))}
 
-          {/* Ordinamento (PiÃ¹ recenti) posizionato subito dopo Oggi */}
+          {/* Ordinamento (Più recenti) posizionato subito dopo Oggi */}
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value)}
             className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-full px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer transition-colors"
           >
-            <option value="Date">PiÃ¹ recenti</option>
+            <option value="Date">Più recenti</option>
             <option value="AI Relevance">Rilevanza AI</option>
           </select>
         </div>
@@ -784,10 +784,10 @@ export default function ArticlesList() {
           {/* Quick gesture hint for mobile/touch users */}
           <div className="flex flex-wrap items-center justify-between text-xs text-slate-400 dark:text-slate-500 px-1 py-0.5 select-none gap-2">
             <span className="flex items-center gap-1.5">
-              <span>ðŸ‘‰</span> <span><strong>Swipe a destra:</strong> apri AI summary</span>
+              <span>👉</span> <span><strong>Swipe a destra:</strong> apri AI summary</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span>ðŸ‘ˆ</span> <span><strong>Swipe a sinistra:</strong> nascondi notizia</span>
+              <span>👈</span> <span><strong>Swipe a sinistra:</strong> nascondi notizia</span>
             </span>
           </div>
 
@@ -844,7 +844,7 @@ export default function ArticlesList() {
                   onClick={() => setVisibleCount(prev => prev + 24)}
                   className="mt-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
                 >
-                  Mostra di piÃ¹ ora
+                  Mostra di più ora
                 </button>
               )}
             </div>
@@ -1212,7 +1212,7 @@ export default function ArticlesList() {
               </div>
 
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                Questa notizia compare nel tuo feed perchÃ© Ã¨ pubblicata da <strong className="text-slate-900 dark:text-slate-100">{infoModalArticle.source || 'RSS Feed'}</strong> ed Ã¨ associata ai tuoi temi di interesse.
+                Questa notizia compare nel tuo feed perché è pubblicata da <strong className="text-slate-900 dark:text-slate-100">{infoModalArticle.source || 'RSS Feed'}</strong> ed è associata ai tuoi temi di interesse.
               </p>
 
               {infoModalArticle.aiTags && infoModalArticle.aiTags.length > 0 && (

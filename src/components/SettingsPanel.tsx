@@ -102,6 +102,7 @@ export default function SettingsPanel() {
     loading: boolean;
     isValidRss?: boolean;
     isScrapeableHtml?: boolean;
+    transformerCreated?: boolean;
     itemCount?: number;
     error?: string;
   }>>({});
@@ -127,7 +128,7 @@ export default function SettingsPanel() {
       setSuggestedFeedTestResults(prev => ({
         ...prev,
         [url]: data
-          ? { loading: false, isValidRss: data.isValidRss, isScrapeableHtml: data.isScrapeableHtml, itemCount: data.itemCount, error: data.error }
+          ? { loading: false, isValidRss: data.isValidRss, isScrapeableHtml: data.isScrapeableHtml, transformerCreated: data.transformerCreated, itemCount: data.itemCount, error: data.error }
           : { loading: false, error: "Errore di connessione durante il test." }
       }));
     } catch (e) {
@@ -688,7 +689,7 @@ export default function SettingsPanel() {
                            >
                              {testState?.loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />} Testa
                            </button>
-                           {!alreadyAdded && (
+                           {!alreadyAdded && !(testState && !testState.loading && !testState.isValidRss && !testState.isScrapeableHtml) && (
                              <button
                                type="button"
                                onClick={() => addSearchedFeedManually(item)}
@@ -708,9 +709,9 @@ export default function SettingsPanel() {
                            {(testState.isValidRss && (testState.itemCount || 0) > 0) ? (
                              <>✓ RSS valido, {testState.itemCount} articoli trovati</>
                            ) : testState.isScrapeableHtml ? (
-                             <>✓ Pagina HTML analizzabile (nessun RSS diretto): verrà creato automaticamente un trasformatore ad-hoc all'aggiunta</>
+                             <>✓ Pagina HTML analizzabile: trasformatore ad-hoc creato con successo ({testState.itemCount} articoli trovati)</>
                            ) : (
-                             <>✗ {testState.error || "Sorgente non raggiungibile o vuota"}</>
+                             <>✗ {testState.error || "Sorgente non raggiungibile o vuota: impossibile creare un trasformatore"}</>
                            )}
                          </div>
                        )}
