@@ -176,14 +176,14 @@ export default function ArticleCardItem({
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 min-w-0 mr-2">
               <span
-                className="w-5 h-5 flex items-center justify-center shrink-0"
+                className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${sourceAccent.bg}`}
                 aria-hidden="true"
               >
                 {faviconUrl && !faviconFailed ? (
                   <img
                     src={faviconUrl}
                     alt=""
-                    className="w-full h-full object-contain"
+                    className="w-3.5 h-3.5 object-contain"
                     onError={() => setFaviconFailed(true)}
                   />
                 ) : (

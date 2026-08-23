@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Interest, Feed, SuggestedFeed } from "../types";
+import { getSourceAccent, getSourceInitial } from "../lib/sourceStyle";
 import { 
   Plus, Trash2, Rss, Hash, Sparkles, X, CheckCircle2, Globe, Compass, 
   Loader2, UserCheck, Bot, Info, ShieldCheck, RefreshCw, Bell, BellRing, Sliders, Check, AlertTriangle, Download, Upload
@@ -847,6 +848,7 @@ export default function SettingsPanel() {
          <div className="space-y-3 mt-6">
             {feeds.map(feed => {
               const transformerResult = transformerResults[feed.id];
+              const accent = getSourceAccent(feed.name);
               return (
                 <div 
                   key={feed.id} 
@@ -855,6 +857,9 @@ export default function SettingsPanel() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2.5 flex-wrap">
+                          <span className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${accent.bg}`} aria-hidden="true">
+                            <span className={`text-[11px] font-black ${accent.text}`}>{getSourceInitial(feed.name)}</span>
+                          </span>
                           <h4 className="font-bold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base">{feed.name}</h4>
                         </div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1 font-mono">{feed.url}</p>

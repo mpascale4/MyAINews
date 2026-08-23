@@ -13,6 +13,22 @@ const ACCENT_PALETTE = [
   { bg: "bg-orange-100 dark:bg-orange-950", text: "text-orange-700 dark:text-orange-300", ring: "ring-orange-200 dark:ring-orange-800" },
 ];
 
+// Hand-picked "brand" colors for well-known sources, so their icon background
+// matches their real-world identity (e.g. Gazzetta dello Sport = pink).
+// Matching is done on a normalized (lowercased) substring of the source name,
+// so both "Gazzetta dello Sport" and any future variant containing it still match.
+const BRAND_ACCENTS: { match: string; accent: typeof ACCENT_PALETTE[number] }[] = [
+  { match: "gazzetta dello sport", accent: { bg: "bg-pink-100 dark:bg-pink-950", text: "text-pink-700 dark:text-pink-300", ring: "ring-pink-200 dark:ring-pink-800" } },
+  { match: "tuttosport", accent: { bg: "bg-violet-100 dark:bg-violet-950", text: "text-violet-700 dark:text-violet-300", ring: "ring-violet-200 dark:ring-violet-800" } },
+  { match: "ansa", accent: { bg: "bg-blue-100 dark:bg-blue-950", text: "text-blue-700 dark:text-blue-300", ring: "ring-blue-200 dark:ring-blue-800" } },
+  { match: "il sole 24 ore", accent: { bg: "bg-amber-100 dark:bg-amber-950", text: "text-amber-800 dark:text-amber-300", ring: "ring-amber-200 dark:ring-amber-800" } },
+  { match: "microsoft", accent: { bg: "bg-sky-100 dark:bg-sky-950", text: "text-sky-700 dark:text-sky-300", ring: "ring-sky-200 dark:ring-sky-800" } },
+  { match: "zdnet", accent: { bg: "bg-red-100 dark:bg-red-950", text: "text-red-700 dark:text-red-300", ring: "ring-red-200 dark:ring-red-800" } },
+  { match: "youtube", accent: { bg: "bg-red-100 dark:bg-red-950", text: "text-red-700 dark:text-red-300", ring: "ring-red-200 dark:ring-red-800" } },
+  { match: "medium", accent: { bg: "bg-slate-100 dark:bg-slate-800", text: "text-slate-700 dark:text-slate-200", ring: "ring-slate-200 dark:ring-slate-700" } },
+  { match: "startupitalia", accent: { bg: "bg-orange-100 dark:bg-orange-950", text: "text-orange-700 dark:text-orange-300", ring: "ring-orange-200 dark:ring-orange-800" } },
+];
+
 function hashString(value: string): number {
   let hash = 0;
   for (let i = 0; i < value.length; i++) {
@@ -24,6 +40,8 @@ function hashString(value: string): number {
 
 export function getSourceAccent(source: string | null | undefined) {
   const key = (source || "?").trim().toLowerCase();
+  const brand = BRAND_ACCENTS.find(b => key.includes(b.match));
+  if (brand) return brand.accent;
   return ACCENT_PALETTE[hashString(key) % ACCENT_PALETTE.length];
 }
 
