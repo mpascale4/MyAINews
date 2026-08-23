@@ -421,10 +421,16 @@ async function startServer() {
     }
   });
   
-  // Trigger fetch
+  // Trigger fetch (optionally scoped to a single feed name, e.g. when the user selects/adds a specific source)
   app.post("/api/fetch", async (req, res) => {
     try {
-      await fetchAllFeeds();
+      const feedName = req.body?.feedName ? String(req.body.feedName).trim() : null;
+      if (feedName) {
+        const matchingFeeds = await db.select().from(rssFeeds).where(eq(rssFeeds.name, feedName));
+        await fetchAllFeeds(matchingFeeds.map(f => f.id));
+      } else {
+        await fetchAllFeeds();
+      }
       res.json({ success: true });
     } catch (err) {
       console.error(err);

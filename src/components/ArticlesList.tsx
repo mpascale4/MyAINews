@@ -369,6 +369,17 @@ export default function ArticlesList() {
     }
     setSelectedSource(srcName);
     setTransformerFeedback(null);
+
+    // Fetch fresh news right away: scoped to the selected source, or all sources
+    // when "Tutte le sorgenti" is clicked.
+    setLoading(true);
+    fetch('/api/fetch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(srcName ? { feedName: srcName } : {})
+    })
+      .catch(err => console.error("Error refreshing source:", err))
+      .finally(() => fetchArticles());
   };
 
   const handleCreateTransformerForSelectedSource = async () => {

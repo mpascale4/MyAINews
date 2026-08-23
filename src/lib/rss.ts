@@ -489,8 +489,11 @@ function calculateFastRelevance(title: string, content: string, tags: string[], 
   return Math.max(0, Math.min(100, score));
 }
 
-export async function fetchAllFeeds() {
-  const feeds = await db.select().from(rssFeeds);
+export async function fetchAllFeeds(onlyFeedIds?: number[]) {
+  const allFeeds = await db.select().from(rssFeeds);
+  const feeds = onlyFeedIds && onlyFeedIds.length > 0
+    ? allFeeds.filter(f => onlyFeedIds.includes(f.id))
+    : allFeeds;
   const userInterests = await db.select().from(interests);
   
   const allExisting = await db.select({ guid: articles.guid, title: articles.title, link: articles.link }).from(articles);

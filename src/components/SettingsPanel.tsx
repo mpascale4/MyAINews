@@ -194,6 +194,13 @@ export default function SettingsPanel() {
         const data = await res.json();
         loadData();
         playAddSound();
+        // Trigger an immediate fetch for the newly added source so its articles show up right away.
+        fetch('/api/fetch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ feedName: item.name })
+        }).catch(err => console.error("Error fetching new source:", err))
+          .finally(() => window.dispatchEvent(new CustomEvent('refresh-articles')));
         // If the RSS URL wasn't valid but the page is scrapeable, the server
         // generates an ad-hoc HTML transformer in the background right after
         // insertion (fire-and-forget); mention that here for HTML-type sources.
@@ -204,8 +211,6 @@ export default function SettingsPanel() {
         );
         setTimeout(() => setFeedSearchFeedback(null), 6000);
         setFeedSearchResults(prev => prev.filter(f => f.url !== item.url));
-        // Notify other components (like ArticlesList) that sources changed
-        window.dispatchEvent(new CustomEvent('refresh-articles'));
       }
     } catch (e) {
       console.error("Error adding searched feed:", e);
@@ -489,16 +494,23 @@ export default function SettingsPanel() {
     if (!newFeedUrl || !newFeedName) return;
     
     // Explicitly set isManual: true for user-added feeds
+    const feedName = newFeedName;
     await fetch('/api/feeds', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: newFeedUrl, name: newFeedName, isManual: true, addedVia: "Aggiunta manuale" })
+      body: JSON.stringify({ url: newFeedUrl, name: feedName, isManual: true, addedVia: "Aggiunta manuale" })
     });
     setNewFeedUrl("");
     setNewFeedName("");
     setTestResult(null);
     loadData();
-    window.dispatchEvent(new CustomEvent('refresh-articles'));
+    // Trigger an immediate fetch for the newly added source so its articles show up right away.
+    fetch('/api/fetch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feedName })
+    }).catch(err => console.error("Error fetching new source:", err))
+      .finally(() => window.dispatchEvent(new CustomEvent('refresh-articles')));
   };
 
   const deleteFeed = async (id: number) => {
