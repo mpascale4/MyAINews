@@ -792,6 +792,22 @@ async function startServer() {
     }
   });
 
+  // Full factory reset: wipes articles, feeds, interests and behavior data so
+  // the app behaves like a fresh install and the onboarding (keyword search)
+  // flow is shown again on next load.
+  app.post("/api/reset-all", async (_req, res) => {
+    try {
+      await db.delete(articles);
+      await db.delete(rssFeeds);
+      await db.delete(interests);
+      await db.delete(userBehavior);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Error resetting app data:", err.message || err);
+      res.status(500).json({ error: err.message || "Internal Server Error" });
+    }
+  });
+
   app.post("/api/feeds/ai-search", async (req, res) => {
     try {
       const { keyword } = req.body;
