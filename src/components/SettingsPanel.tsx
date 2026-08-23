@@ -676,10 +676,8 @@ export default function SettingsPanel() {
           ? `Importate ${newCount} nuove sorgenti (le altre già presenti sono state ignorate, aggiornando solo la chiave di ricerca mancante).`
           : `Nessuna nuova sorgente da aggiungere: tutte già presenti (chiave di ricerca aggiornata dove mancante).`
       );
-      setTimeout(() => setImportFeedback(null), 6000);
     } catch (err: any) {
       setImportFeedback(`Errore: ${err.message || "file non valido."}`);
-      setTimeout(() => setImportFeedback(null), 6000);
     }
   };
 
@@ -742,13 +740,23 @@ export default function SettingsPanel() {
          </div>
 
          {importFeedback && (
-           <div className={`mb-4 p-3 rounded-xl text-xs font-medium flex items-center gap-2 ${
+           <div className={`mb-4 p-4 rounded-2xl text-sm font-semibold flex items-center gap-3 border-2 shadow-md animate-in fade-in zoom-in-95 duration-200 ${
              importFeedback.startsWith('Errore')
-               ? "bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300"
-               : "bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
+               ? "bg-red-50 dark:bg-red-950/60 border-red-300 dark:border-red-700 text-red-900 dark:text-red-200"
+               : "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-100"
            }`}>
-             {importFeedback.startsWith('Errore') ? <X className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
-             <span>{importFeedback}</span>
+             {importFeedback.startsWith('Errore')
+               ? <X className="w-6 h-6 shrink-0 text-red-600 dark:text-red-400" />
+               : <CheckCircle2 className="w-6 h-6 shrink-0 text-emerald-600 dark:text-emerald-400" />}
+             <span className="flex-1">{importFeedback}</span>
+             <button
+               type="button"
+               onClick={() => setImportFeedback(null)}
+               className="shrink-0 p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+               title="Chiudi"
+             >
+               <X className="w-4 h-4" />
+             </button>
            </div>
          )}
 

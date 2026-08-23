@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import ArticleCardItem from "./ArticleCardItem";
 import FormattedSummary from "./FormattedSummary";
+import ConfirmOverlay from "./ConfirmOverlay";
 import { getSourceAccent, getSourceInitial, registerSourceNames } from "../lib/sourceStyle";
 
 function HiddenArticlePlaceholder({ article, onUndo }: { article: Article; onUndo: () => void | Promise<void>; key?: any }) {
@@ -95,6 +96,7 @@ export default function ArticlesList() {
   const [selectedSummary, setSelectedSummary] = useState<Article | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [pendingRegenerateId, setPendingRegenerateId] = useState<number | null>(null);
   const [visibleCount, setVisibleCount] = useState(12);
   const [isLoadMoreLoading, setIsLoadMoreLoading] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -563,10 +565,14 @@ export default function ArticlesList() {
     setIsRegenerating(false);
   };
 
-  const generateSummary = async (id: number) => {
-    if (!window.confirm("Vuoi rigenerare il riassunto di questo articolo? Il riassunto precedente verrà sovrascritto.")) {
-      return;
-    }
+  const generateSummary = (id: number) => {
+    setPendingRegenerateId(id);
+  };
+
+  const confirmGenerateSummary = async () => {
+    if (pendingRegenerateId == null) return;
+    const id = pendingRegenerateId;
+    setPendingRegenerateId(null);
     await autoGenerateSummary(id);
   };
 
@@ -1323,6 +1329,18 @@ export default function ArticlesList() {
           </div>
         </div>
       )}
+
+      <ConfirmOverlay
+        isOpen={pendingRegenerateId !== null}
+        title="Rigenerare il riassunto?"
+        message="Il riassunto AI precedente di questo articolo verrà sovrascritto con uno nuovo."
+        confirmLabel="Rigenera"
+        confirmingLabel="Generazione..."
+        danger={false}
+        isConfirming={isRegenerating}
+        onConfirm={confirmGenerateSummary}
+        onCancel={() => setPendingRegenerateId(null)}
+      />
 
     </div>
   );

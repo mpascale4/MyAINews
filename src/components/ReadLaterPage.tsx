@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import ArticleCardItem from "./ArticleCardItem";
 import FormattedSummary from "./FormattedSummary";
+import ConfirmOverlay from "./ConfirmOverlay";
 
 function HiddenArticlePlaceholder({ article, onUndo }: { article: Article; onUndo: () => void | Promise<void>; key?: any }) {
   const [timeLeft, setTimeLeft] = useState(6);
@@ -90,6 +91,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedSummary, setSelectedSummary] = useState<Article | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [pendingRegenerateId, setPendingRegenerateId] = useState<number | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [hiddenArticle, setHiddenArticle] = useState<Article | null>(null);
@@ -280,10 +282,14 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
     setIsRegenerating(false);
   };
 
-  const generateSummary = async (id: number) => {
-    if (!window.confirm("Vuoi rigenerare il riassunto di questo articolo? Il riassunto precedente verrà sovrascritto.")) {
-      return;
-    }
+  const generateSummary = (id: number) => {
+    setPendingRegenerateId(id);
+  };
+
+  const confirmGenerateSummary = async () => {
+    if (pendingRegenerateId == null) return;
+    const id = pendingRegenerateId;
+    setPendingRegenerateId(null);
     await autoGenerateSummary(id);
   };
 
@@ -768,6 +774,18 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
           </div>
         </div>
       )}
+
+      <ConfirmOverlay
+        isOpen={pendingRegenerateId !== null}
+        title="Rigenerare il riassunto?"
+        message="Il riassunto AI precedente di questo articolo verrà sovrascritto con uno nuovo."
+        confirmLabel="Rigenera"
+        confirmingLabel="Generazione..."
+        danger={false}
+        isConfirming={isRegenerating}
+        onConfirm={confirmGenerateSummary}
+        onCancel={() => setPendingRegenerateId(null)}
+      />
     </div>
   );
 }

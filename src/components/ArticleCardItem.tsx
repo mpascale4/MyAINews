@@ -173,7 +173,7 @@ export default function ArticleCardItem({
       >
         <div className="p-5 flex flex-col flex-1">
           {/* Header Row: Source, Date, Bookmark & Share */}
-          <div className={`flex items-center justify-between mb-3 -mx-5 -mt-5 px-5 py-3 rounded-t-2xl ${sourceAccent.bg}`}>
+          <div className={`flex items-center justify-between mb-3 -mx-5 -mt-5 px-5 py-3 rounded-t-2xl border-b-2 border-black/10 dark:border-white/10 ${sourceAccent.bg}`}>
             <div
               className="flex items-center gap-1.5 min-w-0 mr-2"
             >
