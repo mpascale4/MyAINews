@@ -249,20 +249,29 @@ export default function ArticlesList() {
     fetchArticles();
   }, [filter, sort, selectedTag, selectedSource]);
 
+  // Refs mirror the loading state so the observer callback always reads the
+  // latest value without forcing the effect below to be torn down and
+  // recreated mid-flight (which was cancelling the pending "load more" timeout).
+  const isLoadMoreLoadingRef = useRef(false);
+  const loadingRef = useRef(loading);
+  useEffect(() => { loadingRef.current = loading; }, [loading]);
+
   useEffect(() => {
     if (!sentinelRef.current || articles.length <= visibleCount) return;
 
     const observer = new IntersectionObserver((entries) => {
       const entry = entries[0];
-      if (entry.isIntersecting && !isLoadMoreLoading && !loading) {
+      if (entry.isIntersecting && !isLoadMoreLoadingRef.current && !loadingRef.current) {
+        isLoadMoreLoadingRef.current = true;
         setIsLoadMoreLoading(true);
-        
+
         // Clear any existing timeout
         if (loadMoreTimeoutRef.current) clearTimeout(loadMoreTimeoutRef.current);
-        
+
         // Add a small delay for smoother transition
         loadMoreTimeoutRef.current = setTimeout(() => {
           setVisibleCount(prev => Math.min(prev + 12, articles.length));
+          isLoadMoreLoadingRef.current = false;
           setIsLoadMoreLoading(false);
           loadMoreTimeoutRef.current = null;
         }, 400);
@@ -275,9 +284,15 @@ export default function ArticlesList() {
     observer.observe(sentinelRef.current);
     return () => {
       observer.disconnect();
+    };
+  }, [articles.length, visibleCount]);
+
+  // Clear any pending "load more" timeout only on unmount.
+  useEffect(() => {
+    return () => {
       if (loadMoreTimeoutRef.current) clearTimeout(loadMoreTimeoutRef.current);
     };
-  }, [articles.length, visibleCount, isLoadMoreLoading, loading]);
+  }, []);
 
   // Check if a given tag is in the negative / excluded interests
   const isTagExcluded = (tagName: string) => false;
