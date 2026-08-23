@@ -174,9 +174,11 @@ export default function ArticleCardItem({
         <div className="p-5 flex flex-col flex-1">
           {/* Header Row: Source, Date, Bookmark & Share */}
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 min-w-0 mr-2">
+            <div
+              className={`flex items-center gap-1.5 min-w-0 mr-2 pl-1 pr-2.5 py-1 rounded-full ${sourceAccent.bg}`}
+            >
               <span
-                className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${sourceAccent.bg}`}
+                className="w-4 h-4 flex items-center justify-center shrink-0"
                 aria-hidden="true"
               >
                 {faviconUrl && !faviconFailed ? (
@@ -190,7 +192,7 @@ export default function ArticleCardItem({
                   <span className={`text-[11px] font-black ${sourceAccent.text}`}>{getSourceInitial(article.source)}</span>
                 )}
               </span>
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+              <span className={`text-xs font-semibold uppercase tracking-wider truncate ${sourceAccent.text}`}>
                 {article.source}
               </span>
             </div>
