@@ -394,34 +394,47 @@ async function scrapeSourceWithAdHocTransformer(feed: { id: number; url: string;
 }
 
 /**
- * Tries to set up an ad-hoc scraper config right when a new source is added,
- * if its RSS feed turns out to be invalid but its HTML is scrapeable.
- * Safe to call in the background (fire-and-forget); failures are only logged.
+ * Tries to set up an ad-hoc scraper config for a feed whose RSS turns out to
+ * be invalid but whose HTML is scrapeable. Returns a summary of what happened
+ * so callers can give the user feedback; also safe to call fire-and-forget.
  */
-export async function ensureScraperConfigForFeed(feedId: number, url: string, sourceName: string): Promise<void> {
+export async function ensureScraperConfigForFeed(feedId: number, url: string, sourceName: string): Promise<{
+  createdTransformer: boolean;
+  validRss: boolean;
+  itemCount: number;
+  reason?: string;
+}> {
   try {
     const parsedFeed = await fetchFeedWithFallback(url, sourceName);
-    if (parsedFeed) return; // Valid RSS, no ad-hoc transformer needed.
+    if (parsedFeed) {
+      return { createdTransformer: false, validRss: true, itemCount: (parsedFeed.items || []).length };
+    }
 
     const html = await fetchHtmlWithFallback(url);
     const trimmed = html.trim();
     if (!trimmed || (!trimmed.startsWith('<!DOCTYPE html') && !trimmed.startsWith('<html') && !trimmed.toLowerCase().includes('<html'))) {
-      return; // Not scrapeable HTML either.
+      return { createdTransformer: false, validRss: false, itemCount: 0, reason: "Pagina non analizzabile (né RSS valido né HTML scrapeabile)." };
     }
 
     const cleanedHtml = cleanHtmlForAI(html);
     const config = await generateScraperConfig(url, cleanedHtml, sourceName);
-    if (!config) return;
+    if (!config) {
+      return { createdTransformer: false, validRss: false, itemCount: 0, reason: "L'AI non è riuscita a generare un trasformatore per questa pagina." };
+    }
 
     const items = applyScraperConfig(html, url, config);
     if (items.length > 0) {
       await db.update(rssFeeds).set({ scraperConfig: config, scraperFailCount: 0 }).where(eq(rssFeeds.id, feedId));
-      console.log(`Ad-hoc transformer created at source creation time for ${sourceName} (${items.length} items)`);
+      console.log(`Ad-hoc transformer created for ${sourceName} (${items.length} items)`);
+      return { createdTransformer: true, validRss: false, itemCount: items.length };
     }
+    return { createdTransformer: false, validRss: false, itemCount: 0, reason: "Trasformatore generato ma 0 articoli estratti." };
   } catch (e: any) {
     console.warn(`Could not create ad-hoc transformer for ${sourceName}:`, e.message || e);
+    return { createdTransformer: false, validRss: false, itemCount: 0, reason: e.message || "Errore imprevisto." };
   }
 }
+
 
 function calculateFastRelevance(title: string, content: string, tags: string[], userInterests: { keyword: string, type: string, weight: number }[]): number {
   if (!userInterests || userInterests.length === 0) return 50;

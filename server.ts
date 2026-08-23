@@ -553,6 +553,23 @@ async function startServer() {
     }
   });
 
+  // Try (synchronously) to create/refresh an ad-hoc HTML transformer for a
+  // feed using its already-configured URL, without exposing/changing the URL.
+  app.post("/api/feeds/:id/create-transformer", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const existing = await db.select().from(rssFeeds).where(eq(rssFeeds.id, id));
+      const feed = existing[0];
+      if (!feed) return res.status(404).json({ error: "Feed not found" });
+
+      const result = await ensureScraperConfigForFeed(id, feed.url, feed.name || feed.url);
+      res.json(result);
+    } catch (err: any) {
+      console.warn("Error creating transformer:", err.message || err);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  });
+
   // Add multiple feeds
   app.post("/api/feeds/bulk", async (req, res) => {
     try {

@@ -502,6 +502,45 @@ export default function SettingsPanel() {
     window.dispatchEvent(new CustomEvent('refresh-articles'));
   };
 
+  const [transformerResults, setTransformerResults] = useState<Record<number, {
+    loading: boolean;
+    createdTransformer?: boolean;
+    validRss?: boolean;
+    itemCount?: number;
+    reason?: string;
+  }>>({});
+
+  const createTransformerForFeed = async (feedId: number) => {
+    setTransformerResults(prev => ({ ...prev, [feedId]: { loading: true } }));
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // up to 90s: AI retries can be slow
+    try {
+      const res = await fetch(`/api/feeds/${feedId}/create-transformer`, { method: 'POST', signal: controller.signal });
+      clearTimeout(timeoutId);
+      const data = res.ok ? await res.json() : null;
+      setTransformerResults(prev => ({
+        ...prev,
+        [feedId]: data
+          ? { loading: false, createdTransformer: data.createdTransformer, validRss: data.validRss, itemCount: data.itemCount, reason: data.reason }
+          : { loading: false, reason: "Errore di connessione durante la creazione del trasformatore." }
+      }));
+      if (data?.createdTransformer || data?.validRss) {
+        window.dispatchEvent(new CustomEvent('refresh-articles'));
+      }
+    } catch (e: any) {
+      clearTimeout(timeoutId);
+      setTransformerResults(prev => ({
+        ...prev,
+        [feedId]: {
+          loading: false,
+          reason: e.name === 'AbortError'
+            ? "L'operazione sta impiegando troppo tempo (probabile limite di quota AI raggiunto). Riprova tra qualche minuto."
+            : "Errore imprevisto durante la creazione del trasformatore."
+        }
+      }));
+    }
+  };
+
   const toggleManualStatus = async (feed: Feed) => {
     const newStatus = !feed.isManual;
     await fetch(`/api/feeds/${feed.id}/manual`, {
@@ -682,29 +721,58 @@ export default function SettingsPanel() {
              )}
                   {/* Feed items list */}
          <div className="space-y-3">
-            {feeds.map(feed => (
+            {feeds.map(feed => {
+              const transformerResult = transformerResults[feed.id];
+              return (
                 <div 
                   key={feed.id} 
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:px-5 sm:py-4 rounded-xl gap-3 transition-all bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/70 hover:bg-slate-100/80 dark:hover:bg-slate-800"
+                  className="flex flex-col gap-3 p-4 sm:px-5 sm:py-4 rounded-xl transition-all bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/70 hover:bg-slate-100/80 dark:hover:bg-slate-800"
                 >
-                   <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <h4 className="font-bold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base">{feed.name}</h4>
-                      </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1 font-mono">{feed.url}</p>
-                   </div>
-                   
-                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                     <button 
-                       onClick={() => deleteFeed(feed.id)} 
-                       className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-                       title="Elimina sorgente"
-                     >
-                       <Trash2 className="w-4 h-4" />
-                     </button>
-                   </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <h4 className="font-bold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base">{feed.name}</h4>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1 font-mono">{feed.url}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <button
+                        onClick={() => createTransformerForFeed(feed.id)}
+                        disabled={transformerResult?.loading}
+                        className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-60"
+                        title="Prova a creare/rigenerare un trasformatore ad-hoc per questa sorgente"
+                      >
+                        {transformerResult?.loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Crea trasformatore
+                      </button>
+                      <button 
+                        onClick={() => deleteFeed(feed.id)} 
+                        className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                        title="Elimina sorgente"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {transformerResult && !transformerResult.loading && (
+                    <div className={`text-xs font-medium rounded-lg px-3 py-2 flex items-center gap-2 ${
+                      transformerResult.validRss || transformerResult.createdTransformer
+                        ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300"
+                        : "bg-red-50 dark:bg-red-950/50 text-red-800 dark:text-red-300"
+                    }`}>
+                      {transformerResult.validRss ? (
+                        <>✓ RSS valido, {transformerResult.itemCount} articoli trovati</>
+                      ) : transformerResult.createdTransformer ? (
+                        <>✓ Trasformatore creato, {transformerResult.itemCount} articoli estratti</>
+                      ) : (
+                        <>✗ {transformerResult.reason || "Impossibile creare un trasformatore per questa sorgente"}</>
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))}
+              );
+            })}
             {feeds.length === 0 && (
               <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm">
                 Nessuna sorgente RSS configurata. Clicca su "Rigenera da Interessi" per farti consigliare dall'AI o aggiungine una a mano.

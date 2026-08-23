@@ -98,11 +98,9 @@ export default function ArticlesList() {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const loadMoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // "Fix URL" flow for a broken/empty source (shown in the empty-state box)
-  const [isFixUrlOpen, setIsFixUrlOpen] = useState(false);
-  const [fixUrlValue, setFixUrlValue] = useState("");
-  const [isFixingUrl, setIsFixingUrl] = useState(false);
-  const [fixUrlFeedback, setFixUrlFeedback] = useState<string | null>(null);
+  // "Create transformer" flow for a broken/empty source (shown in the empty-state box)
+  const [isCreatingTransformer, setIsCreatingTransformer] = useState(false);
+  const [transformerFeedback, setTransformerFeedback] = useState<string | null>(null);
 
   // Source click frequency tracking
   const [sourceClickCounts, setSourceClickCounts] = useState<Record<string, number>>(() => {
@@ -384,44 +382,40 @@ export default function ArticlesList() {
       setSelectedTag(null);
     }
     setSelectedSource(srcName);
-    setIsFixUrlOpen(false);
-    setFixUrlValue("");
-    setFixUrlFeedback(null);
+    setTransformerFeedback(null);
   };
 
-  const handleOpenFixUrl = () => {
+  const handleCreateTransformerForSelectedSource = async () => {
     const feed = configuredFeeds.find(f => f.name === selectedSource);
-    setFixUrlValue(feed?.url || "");
-    setFixUrlFeedback(null);
-    setIsFixUrlOpen(true);
-  };
+    if (!feed) return;
 
-  const handleFixSourceUrl = async () => {
-    const feed = configuredFeeds.find(f => f.name === selectedSource);
-    const newUrl = fixUrlValue.trim();
-    if (!feed || !newUrl) return;
-
-    setIsFixingUrl(true);
-    setFixUrlFeedback(null);
+    setIsCreatingTransformer(true);
+    setTransformerFeedback(null);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // up to 90s: AI retries can be slow
     try {
-      const res = await fetch(`/api/feeds/${feed.id}/url`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: newUrl }),
-      });
+      const res = await fetch(`/api/feeds/${feed.id}/create-transformer`, { method: "POST", signal: controller.signal });
+      clearTimeout(timeoutId);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-      setFixUrlFeedback("URL aggiornato! Se non c'è un RSS valido, verrà creato automaticamente un trasformatore ad-hoc per la pagina HTML entro qualche secondo.");
-      setConfiguredFeeds(prev => prev.map(f => f.id === feed.id ? { ...f, url: newUrl } : f));
-      setTimeout(() => {
-        fetchArticles();
-        setFixUrlFeedback(null);
-        setIsFixUrlOpen(false);
-      }, 6000);
+      const data = await res.json();
+      if (data.validRss) {
+        setTransformerFeedback(`L'RSS risulta valido (${data.itemCount} articoli): riprovo a caricare le notizie.`);
+      } else if (data.createdTransformer) {
+        setTransformerFeedback(`Trasformatore creato! Trovati ${data.itemCount} articoli. Aggiorno la lista...`);
+      } else {
+        setTransformerFeedback(data.reason || "Non è stato possibile creare un trasformatore per questa sorgente.");
+      }
+      fetchArticles();
     } catch (err: any) {
-      console.error("Error fixing feed URL:", err);
-      setFixUrlFeedback("Errore durante l'aggiornamento dell'URL. Riprova.");
+      clearTimeout(timeoutId);
+      console.error("Error creating transformer:", err);
+      setTransformerFeedback(
+        err.name === 'AbortError'
+          ? "L'operazione sta impiegando troppo tempo (probabile limite di quota AI raggiunto). Riprova tra qualche minuto."
+          : "Errore durante il tentativo di creazione del trasformatore. Riprova."
+      );
     } finally {
-      setIsFixingUrl(false);
+      setIsCreatingTransformer(false);
     }
   };
 
@@ -735,45 +729,18 @@ export default function ArticlesList() {
         <div className="text-center text-slate-500 dark:text-slate-400 py-12 px-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
           <p>Nessuna notizia trovata per i criteri selezionati.</p>
 
-          {selectedSource && !isFixUrlOpen && (
-            <button
-              onClick={handleOpenFixUrl}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer"
-            >
-              <Rss className="w-3.5 h-3.5" /> Correggi URL sorgente "{selectedSource}"
-            </button>
-          )}
-
-          {selectedSource && isFixUrlOpen && (
-            <div className="max-w-md mx-auto space-y-2.5 text-left">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Inserisci il nuovo URL per "{selectedSource}". Se non ha un RSS valido, verrà creato automaticamente un trasformatore ad-hoc per estrarre le notizie dalla pagina HTML.
-              </p>
-              <input
-                type="text"
-                value={fixUrlValue}
-                onChange={(e) => setFixUrlValue(e.target.value)}
-                placeholder="https://..."
-                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleFixSourceUrl}
-                  disabled={isFixingUrl || !fixUrlValue.trim()}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {isFixingUrl ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                  Aggiorna e crea trasformatore
-                </button>
-                <button
-                  onClick={() => { setIsFixUrlOpen(false); setFixUrlFeedback(null); }}
-                  className="px-3 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer"
-                >
-                  Annulla
-                </button>
-              </div>
-              {fixUrlFeedback && (
-                <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{fixUrlFeedback}</p>
+          {selectedSource && (
+            <div className="space-y-2">
+              <button
+                onClick={handleCreateTransformerForSelectedSource}
+                disabled={isCreatingTransformer}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {isCreatingTransformer ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                Prova a creare trasformatore per "{selectedSource}"
+              </button>
+              {transformerFeedback && (
+                <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400 max-w-md mx-auto">{transformerFeedback}</p>
               )}
             </div>
           )}
