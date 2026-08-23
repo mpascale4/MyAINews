@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Interest, Feed, SuggestedFeed } from "../types";
 import { getSourceAccent, getSourceInitial, registerSourceNames } from "../lib/sourceStyle";
+import ConfirmOverlay from "./ConfirmOverlay";
 import { 
   Plus, Trash2, Rss, Hash, Sparkles, X, CheckCircle2, Globe, Compass, 
   Loader2, UserCheck, Bot, Info, ShieldCheck, RefreshCw, Bell, BellRing, Sliders, Check, AlertTriangle, Download, Upload
@@ -576,10 +577,10 @@ export default function SettingsPanel() {
     setFeeds(prev => prev.map(f => f.id === feed.id ? { ...f, isManual: newStatus } : f));
   };
 
+  const [isRegenerateConfirmOpen, setIsRegenerateConfirmOpen] = useState(false);
+
   const generateFeedsFromInterests = async () => {
-    if (!window.confirm("Vuoi procedere con la rigenerazione delle sorgenti RSS?\n\nTutte le sorgenti automatiche precedenti verranno cancellate e ricreate in base ai tuoi interessi attuali (le sorgenti manuali protette rimarranno intatte).")) {
-      return;
-    }
+    setIsRegenerateConfirmOpen(false);
     setIsGenerating(true);
     try {
       const response = await fetch('/api/feeds/generate-ai', {
@@ -702,7 +703,17 @@ export default function SettingsPanel() {
                Gestisci i tuoi feed RSS e Google News attivi per raccogliere notizie aggiornate.
              </p>
            </div>
-           <div className="flex items-center gap-2 shrink-0">
+           <div className="flex items-center gap-2 shrink-0 flex-wrap">
+             <button
+               type="button"
+               onClick={() => setIsRegenerateConfirmOpen(true)}
+               disabled={isGenerating}
+               className="bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+               title="Rigenera le sorgenti automatiche in base ai tuoi interessi attuali"
+             >
+               {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+               Rigenera da Interessi
+             </button>
              <button
                type="button"
                onClick={handleExportFeeds}
@@ -1289,46 +1300,29 @@ export default function SettingsPanel() {
       )}
 
       {/* Reset All Confirmation Overlay */}
-      {isResetConfirmOpen && (
-        <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[90] flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={() => !isResetting && setIsResetConfirmOpen(false)}
-        >
-          <div
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/70 border border-rose-100 dark:border-rose-900 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Resettare tutto?
-              </h3>
-            </div>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-5">
-              Verranno cancellati definitivamente tutte le sorgenti, gli articoli, gli interessi e le preferenze. Al riavvio ti verrà riproposta la ricerca guidata delle sorgenti tramite parole chiave. Questa azione non può essere annullata.
-            </p>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setIsResetConfirmOpen(false)}
-                disabled={isResetting}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={handleResetAll}
-                disabled={isResetting}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-              >
-                {isResetting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                {isResetting ? "Reset in corso..." : "Resetta tutto"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmOverlay
+        isOpen={isResetConfirmOpen}
+        title="Resettare tutto?"
+        message="Verranno cancellati definitivamente tutte le sorgenti, gli articoli, gli interessi e le preferenze. Al riavvio ti verrà riproposta la ricerca guidata delle sorgenti tramite parole chiave. Questa azione non può essere annullata."
+        confirmLabel="Resetta tutto"
+        confirmingLabel="Reset in corso..."
+        isConfirming={isResetting}
+        onConfirm={handleResetAll}
+        onCancel={() => setIsResetConfirmOpen(false)}
+      />
+
+      {/* Regenerate Feeds from Interests Confirmation Overlay */}
+      <ConfirmOverlay
+        isOpen={isRegenerateConfirmOpen}
+        title="Rigenerare le sorgenti?"
+        message="Tutte le sorgenti automatiche precedenti verranno cancellate e ricreate in base ai tuoi interessi attuali (le sorgenti manuali protette rimarranno intatte)."
+        confirmLabel="Rigenera"
+        confirmingLabel="Generazione in corso..."
+        danger={false}
+        isConfirming={isGenerating}
+        onConfirm={generateFeedsFromInterests}
+        onCancel={() => setIsRegenerateConfirmOpen(false)}
+      />
 
     </div>
     </div>
