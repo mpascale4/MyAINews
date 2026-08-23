@@ -30,6 +30,8 @@ interface ArticleCardItemProps {
   onHide: (articleId: number) => void;
   onShare: (article: Article, e?: React.MouseEvent) => void;
   onOpenInfo?: (article: Article) => void;
+  onRestore?: (articleId: number) => void;
+  isRestoring?: boolean;
 }
 
 export default function ArticleCardItem({
@@ -43,6 +45,8 @@ export default function ArticleCardItem({
   onHide,
   onShare,
   onOpenInfo,
+  onRestore,
+  isRestoring,
 }: ArticleCardItemProps) {
   // Swipe State
   const [offsetX, setOffsetX] = useState(0);
@@ -253,17 +257,35 @@ export default function ArticleCardItem({
             )}
 
             {/* Nascondi Button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onHide(article.id);
-              }}
-              className="flex items-center gap-1 text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 font-medium transition-colors cursor-pointer bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 px-2 py-1 rounded-lg border border-rose-200/70 dark:border-rose-800/70"
-              title="Nascondi notizia"
-            >
-              <EyeOff className="w-3.5 h-3.5" />
-              <span>Nascondi</span>
-            </button>
+            {!onRestore && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onHide(article.id);
+                }}
+                className="flex items-center gap-1 text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 font-medium transition-colors cursor-pointer bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 px-2 py-1 rounded-lg border border-rose-200/70 dark:border-rose-800/70"
+                title="Nascondi notizia"
+              >
+                <EyeOff className="w-3.5 h-3.5" />
+                <span>Nascondi</span>
+              </button>
+            )}
+
+            {/* Ripristina Button (Cestino only) */}
+            {onRestore && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRestore(article.id);
+                }}
+                disabled={isRestoring}
+                className="flex items-center gap-1 text-xs text-indigo-700 hover:text-indigo-800 dark:text-indigo-300 dark:hover:text-indigo-200 font-medium transition-colors cursor-pointer bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 px-2 py-1 rounded-lg border border-indigo-200/70 dark:border-indigo-800/70 disabled:opacity-50"
+                title="Ripristina notizia"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Ripristina</span>
+              </button>
+            )}
           </div>
 
           {/* Title */}
