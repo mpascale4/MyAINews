@@ -85,6 +85,7 @@ export default function ArticlesList() {
   const [isLoadMoreLoading, setIsLoadMoreLoading] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const loadMoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const skipNextSourceFetchRef = useRef(false);
 
   // "Create transformer" flow for a broken/empty source (shown in the empty-state box)
   const [isCreatingTransformer, setIsCreatingTransformer] = useState(false);
@@ -231,6 +232,10 @@ export default function ArticlesList() {
   }, []);
 
   useEffect(() => {
+    if (skipNextSourceFetchRef.current) {
+      skipNextSourceFetchRef.current = false;
+      return;
+    }
     fetchArticles();
   }, [filter, sort, selectedTag, selectedSource]);
 
@@ -367,11 +372,17 @@ export default function ArticlesList() {
       setFilter("All");
       setSelectedTag(null);
     }
-    setSelectedSource(srcName);
     setTransformerFeedback(null);
 
-    // Fetch fresh news right away: scoped to the selected source, or all sources
-    // when "Tutte le sorgenti" is clicked.
+    // Update the selected source immediately for instant visual feedback (highlight),
+    // but skip the auto-fetch from the filter/sort/source effect below — we perform a
+    // single fetchArticles() ourselves after the /api/fetch refresh completes, to avoid
+    // a double-fetch flicker.
+    skipNextSourceFetchRef.current = true;
+    setSelectedSource(srcName);
+
+    // Refresh fresh news: scoped to the selected source, or all sources for
+    // "Tutte le sorgenti".
     setLoading(true);
     fetch('/api/fetch', {
       method: 'POST',
