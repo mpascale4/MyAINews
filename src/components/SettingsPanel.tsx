@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Interest, Feed, SuggestedFeed } from "../types";
-import { getSourceAccent, getSourceInitial, registerSourceNames } from "../lib/sourceStyle";
+import { registerSourceNames } from "../lib/sourceStyle";
 import ConfirmOverlay from "./ConfirmOverlay";
+import AiFeedGenerationModal, { AiOverlayData } from "./AiFeedGenerationModal";
+import AiProfileInterviewModal from "./AiProfileInterviewModal";
+import FeedListItem from "./FeedListItem";
+import FeedSearchByKeyword from "./FeedSearchByKeyword";
 import { 
-  Plus, Trash2, Rss, Hash, Sparkles, X, CheckCircle2, Globe, Compass, 
-  Loader2, UserCheck, Bot, Info, ShieldCheck, RefreshCw, Bell, BellRing, Sliders, Check, AlertTriangle, Download, Upload
+  Trash2, Rss, Hash, Sparkles, X, CheckCircle2, Globe, 
+  Loader2, UserCheck, Bot, Info, RefreshCw, Bell, BellRing, Sliders, Check, AlertTriangle, Download, Upload
 } from "lucide-react";
 
 export interface WeeklyTopic {
@@ -68,13 +72,7 @@ export default function SettingsPanel() {
   };
 
   // Overlay modal state
-  const [aiOverlayData, setAiOverlayData] = useState<{
-    isOpen: boolean;
-    newCount: number;
-    resetCount: number;
-    manualCount: number;
-    suggestedFeeds: (SuggestedFeed & { isNew?: boolean })[];
-  }>({
+  const [aiOverlayData, setAiOverlayData] = useState<AiOverlayData>({
     isOpen: false,
     newCount: 0,
     resetCount: 0,
@@ -773,168 +771,30 @@ export default function SettingsPanel() {
          )}
 
           {/* AI Feed Search by Keyword (e.g. Lucca) */}
-          <div className="mb-8 p-5 bg-indigo-50/60 dark:bg-indigo-950/30 rounded-2xl border border-indigo-200 dark:border-indigo-800/60">
-             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-2">
-               <Compass className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-               Cerca Feed con AI per Parola Chiave o Località (es. Lucca)
-             </h3>
-             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-               Inserisci un argomento o una città (es. "Lucca", "Formula 1", "Economia") e l'AI cercherà i migliori feed RSS e Google News da aggiungere come sorgenti manuali protette.
-             </p>
-             <form onSubmit={searchFeedsAI} className="flex flex-col sm:flex-row gap-3">
-               <input
-                 type="text"
-                 value={feedSearchKeyword}
-                 onChange={(e) => setFeedSearchKeyword(e.target.value)}
-                 placeholder="Inserisci parola chiave (es. Lucca)..."
-                 className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-               />
-               <button
-                 type="submit"
-                 disabled={feedSearchLoading || !feedSearchKeyword.trim()}
-                 className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0 shadow-xs"
-               >
-                 {feedSearchLoading ? (
-                   <Loader2 className="w-4 h-4 animate-spin" />
-                 ) : (
-                   <Sparkles className="w-4 h-4 text-amber-300" />
-                 )}
-                 Cerca con AI
-               </button>
-             </form>
-
-             {feedSearchFeedback && (
-               <div className="mt-3 p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 rounded-xl text-xs font-medium flex items-center gap-2">
-                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                 <span>{feedSearchFeedback}</span>
-               </div>
-             )}
-
-             {feedSearchResults.length > 0 && (
-               <div className="mt-4 space-y-2.5">
-                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-                   Risultati Trovati dall'AI (Clicca per aggiungere come manuale):
-                 </span>
-                 <div className="space-y-2">
-                   {feedSearchResults.map((item, idx) => {
-                     const alreadyAdded = existingFeedUrls.has(normalizeFeedUrl(item.url));
-                     const testState = suggestedFeedTestResults[item.url];
-                     return (
-                     <div key={idx} className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-indigo-100 dark:border-indigo-900/60 flex flex-col gap-3 shadow-xs">
-                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                         <div className="min-w-0 flex-1">
-                           <div className="flex items-center gap-2 flex-wrap">
-                             <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{item.name}</span>
-                             <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
-                               {item.category}
-                             </span>
-                             {alreadyAdded && (
-                               <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-                                 <CheckCircle2 className="w-3 h-3" /> Già aggiunta
-                               </span>
-                             )}
-                           </div>
-                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{item.reason}</p>
-                           <p className="text-[11px] text-slate-400 font-mono truncate mt-1">{item.url}</p>
-                         </div>
-                         <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                           <button
-                             type="button"
-                             onClick={() => testSuggestedFeed(item.url)}
-                             disabled={testState?.loading}
-                             className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-60"
-                           >
-                             {testState?.loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />} Testa
-                           </button>
-                           {!alreadyAdded && !(testState && !testState.loading && !testState.isValidRss && !testState.isScrapeableHtml) && (
-                             <button
-                               type="button"
-                               onClick={() => addSearchedFeedManually(item)}
-                               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
-                             >
-                               <Plus className="w-3.5 h-3.5" /> Aggiungi
-                             </button>
-                           )}
-                         </div>
-                       </div>
-                       {testState && !testState.loading && (
-                         <div className={`text-xs font-medium rounded-lg px-3 py-2 flex items-center gap-2 ${
-                           (testState.isValidRss && (testState.itemCount || 0) > 0) || testState.isScrapeableHtml
-                             ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300"
-                             : "bg-red-50 dark:bg-red-950/50 text-red-800 dark:text-red-300"
-                         }`}>
-                           {(testState.isValidRss && (testState.itemCount || 0) > 0) ? (
-                             <>✓ RSS valido, {testState.itemCount} articoli trovati</>
-                           ) : testState.isScrapeableHtml ? (
-                             <>✓ Pagina HTML analizzabile: trasformatore ad-hoc creato con successo ({testState.itemCount} articoli trovati)</>
-                           ) : (
-                             <>✗ {testState.error || "Sorgente non raggiungibile o vuota: impossibile creare un trasformatore"}</>
-                           )}
-                         </div>
-                       )}
-                     </div>
-                   )})}
-                 </div>
-               </div>
-             )}
+          <FeedSearchByKeyword
+            keyword={feedSearchKeyword}
+            onKeywordChange={setFeedSearchKeyword}
+            loading={feedSearchLoading}
+            feedback={feedSearchFeedback}
+            results={feedSearchResults}
+            existingFeedUrls={existingFeedUrls}
+            normalizeFeedUrl={normalizeFeedUrl}
+            testResults={suggestedFeedTestResults}
+            onSearch={searchFeedsAI}
+            onTest={testSuggestedFeed}
+            onAdd={addSearchedFeedManually}
+          />
                   {/* Feed items list */}
          <div className="space-y-3 mt-6">
-            {feeds.map(feed => {
-              const transformerResult = transformerResults[feed.id];
-              const accent = getSourceAccent(feed.name);
-              return (
-                <div 
-                  key={feed.id} 
-                  className={`flex flex-col gap-3 p-4 sm:px-5 sm:py-4 rounded-xl transition-all border border-transparent ${accent.bg}`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                          <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-white/40 dark:bg-black/20" aria-hidden="true">
-                            <span className={`text-[11px] font-black ${accent.text}`}>{getSourceInitial(feed.name)}</span>
-                          </span>
-                          <h4 className={`font-bold truncate text-sm sm:text-base ${accent.text}`}>{feed.name}</h4>
-                        </div>
-                        <p className={`text-xs truncate mt-1 font-mono opacity-70 ${accent.text}`}>{feed.url}</p>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                      <button
-                        onClick={() => createTransformerForFeed(feed.id)}
-                        disabled={transformerResult?.loading}
-                        className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-60"
-                        title="Testa questa sorgente: verifica quanti articoli vengono trovati (creando un trasformatore ad-hoc se serve)"
-                      >
-                        {transformerResult?.loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />} Testa
-                      </button>
-                      <button 
-                        onClick={() => deleteFeed(feed.id)} 
-                        className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-                        title="Elimina sorgente"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {transformerResult && !transformerResult.loading && (
-                    <div className={`text-xs font-medium rounded-lg px-3 py-2 flex items-center gap-2 ${
-                      transformerResult.validRss || transformerResult.createdTransformer
-                        ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300"
-                        : "bg-red-50 dark:bg-red-950/50 text-red-800 dark:text-red-300"
-                    }`}>
-                      {transformerResult.validRss ? (
-                        <>✓ RSS valido, {transformerResult.itemCount} articoli trovati</>
-                      ) : transformerResult.createdTransformer ? (
-                        <>✓ Trasformatore creato, {transformerResult.itemCount} articoli estratti</>
-                      ) : (
-                        <>✗ {transformerResult.reason || "Impossibile creare un trasformatore per questa sorgente"}</>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {feeds.map(feed => (
+              <FeedListItem
+                key={feed.id}
+                feed={feed}
+                transformerResult={transformerResults[feed.id]}
+                onTest={createTransformerForFeed}
+                onDelete={deleteFeed}
+              />
+            ))}
             {feeds.length === 0 && (
               <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm">
                 Nessuna sorgente RSS configurata. Clicca su "Rigenera da Interessi" per farti consigliare dall'AI o aggiungine una a mano.
@@ -1054,270 +914,27 @@ export default function SettingsPanel() {
 
 
       {/* AI Feed Generation Result Overlay Modal */}
-      {aiOverlayData.isOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
-            
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 dark:from-indigo-700 dark:to-indigo-900 p-6 text-white flex items-start justify-between shrink-0">
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20 shadow-inner">
-                  <Sparkles className="w-6 h-6 text-amber-300" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold">Rigenerazione Sorgenti AI</h3>
-                  <p className="text-indigo-100 text-sm mt-0.5">
-                    {aiOverlayData.newCount > 0 
-                      ? `✨ ${aiOverlayData.newCount} nuov${aiOverlayData.newCount === 1 ? 'a sorgente aggiunta' : 'e sorgenti aggiunte'} dall'AI`
-                      : "Fonti AI aggiornate e allineate"}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setAiOverlayData(prev => ({ ...prev, isOpen: false }))}
-                className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-xl transition-colors cursor-pointer"
-                title="Chiudi"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-4">
-              {/* Summary Stats Pill Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 p-3 rounded-xl flex items-center gap-2.5">
-                  <ShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
-                  <div>
-                    <div className="text-xs text-amber-800 dark:text-amber-300 font-semibold">{aiOverlayData.manualCount} Manuali</div>
-                    <div className="text-[11px] text-amber-600/90 dark:text-amber-400/80">Conservate intatte</div>
-                  </div>
-                </div>
-
-                <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/50 p-3 rounded-xl flex items-center gap-2.5">
-                  <RefreshCw className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
-                  <div>
-                    <div className="text-xs text-rose-800 dark:text-rose-300 font-semibold">{aiOverlayData.resetCount} Azzerate</div>
-                    <div className="text-[11px] text-rose-600/90 dark:text-rose-400/80">Vecchie fonti auto</div>
-                  </div>
-                </div>
-
-                <div className="col-span-2 sm:col-span-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 p-3 rounded-xl flex items-center gap-2.5">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <div>
-                    <div className="text-xs text-emerald-800 dark:text-emerald-300 font-semibold">{aiOverlayData.newCount} Nuove Fonti</div>
-                    <div className="text-[11px] text-emerald-600/90 dark:text-emerald-400/80">Generate da AI</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3 pt-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-1">
-                  Sorgenti Selezionate dall'AI
-                </h4>
-                
-                {aiOverlayData.suggestedFeeds.map((feed, index) => (
-                  <div 
-                    key={index} 
-                    className="p-4 rounded-2xl border bg-indigo-50/40 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800/60 shadow-xs"
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">{feed.name}</span>
-                        {feed.category && (
-                          <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold rounded-md uppercase tracking-wider">
-                            {feed.category}
-                          </span>
-                        )}
-                      </div>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-700 px-2 py-0.5 rounded-full shrink-0">
-                        <CheckCircle2 className="w-3 h-3" /> Attivo
-                      </span>
-                    </div>
-
-                    {feed.reason && (
-                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">
-                        {feed.reason}
-                      </p>
-                    )}
-
-                    <div className="flex items-center gap-1.5 mt-2.5 text-[11px] text-indigo-600 dark:text-indigo-400 font-mono truncate">
-                      <Globe className="w-3.5 h-3.5 shrink-0 opacity-70" />
-                      <span className="truncate">{feed.url}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                Totale fonti attive: <strong className="font-semibold text-slate-800 dark:text-slate-200">{feeds.length}</strong>
-              </span>
-              <button
-                onClick={() => setAiOverlayData(prev => ({ ...prev, isOpen: false }))}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer shadow-xs"
-              >
-                Ho Capito
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
+      <AiFeedGenerationModal
+        data={aiOverlayData}
+        totalFeedsCount={feeds.length}
+        onClose={() => setAiOverlayData(prev => ({ ...prev, isOpen: false }))}
+      />
 
       {/* AI Profile Interview Modal */}
-      {interviewOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            
-            {/* Header */}
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 bg-indigo-50/50 dark:bg-indigo-950/30">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
-                  <Sparkles className="w-5 h-5 text-amber-300" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg">Intervista AI per Profilo e Interessi</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Parla con l'assistente per scoprire e aggiornare i tuoi argomenti</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setInterviewOpen(false)}
-                className="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {interviewMessages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  {msg.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0 mt-1 shadow-xs">
-                      <Bot className="w-4 h-4" />
-                    </div>
-                  )}
-                  <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                      msg.role === 'user'
-                        ? 'bg-indigo-600 text-white rounded-br-xs'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-bl-xs border border-slate-200 dark:border-slate-700'
-                    }`}
-                  >
-                    {msg.content}
-                  </div>
-                </div>
-              ))}
-
-              {interviewLoading && (
-                <div className="flex gap-3 items-center text-slate-400 text-xs italic">
-                  <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  </div>
-                  <span>L'assistente sta elaborando la risposta...</span>
-                </div>
-              )}
-            </div>
-
-            {/* Extracted Preview Banner & Feed Results */}
-            {(pendingExtracted.length > 0 || pendingSuggestedFeeds.length > 0) && (
-              <div className="px-6 py-4 bg-emerald-50/90 dark:bg-emerald-950/60 border-t border-emerald-200 dark:border-emerald-800 space-y-3 shrink-0">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
-                      Risultati Rilevati dall'AI ({pendingExtracted.length} Interessi, {pendingSuggestedFeeds.length} Feed)
-                    </span>
-                  </div>
-                  <button
-                    onClick={applyExtractedInterests}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer shrink-0 flex items-center gap-1.5"
-                  >
-                    <Check className="w-4 h-4" /> Applica al Profilo e Aggiungi Feed
-                  </button>
-                </div>
-
-                {/* Pending Interests */}
-                {pendingExtracted.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 items-center">
-                    <span className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300 mr-1">Interessi:</span>
-                    {pendingExtracted.map((item, idx) => (
-                      <span
-                        key={idx}
-                        className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
-                          item.type === 'negative'
-                            ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-200'
-                            : 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-200'
-                        }`}
-                      >
-                        {item.type === 'negative' ? '⛔ ' : '⭐ '}{item.keyword}
-                        <button
-                          type="button"
-                          onClick={() => setPendingExtracted(prev => prev.filter((_, i) => i !== idx))}
-                          className="hover:opacity-75 cursor-pointer ml-1 text-xs font-bold"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Pending Feed Suggestions */}
-                {pendingSuggestedFeeds.length > 0 && (
-                  <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-                    <span className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300 block">Sorgenti RSS Suggerite:</span>
-                    {pendingSuggestedFeeds.map((feed, idx) => (
-                      <div key={idx} className="bg-white dark:bg-slate-900/90 p-2 rounded-lg border border-emerald-200/80 dark:border-emerald-800/80 flex items-center justify-between text-xs gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-slate-900 dark:text-slate-100 truncate">{feed.name}</div>
-                          {feed.reason && <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{feed.reason}</div>}
-                        </div>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 shrink-0">
-                          {feed.category || 'Generale'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setPendingSuggestedFeeds(prev => prev.filter((_, i) => i !== idx))}
-                          className="text-slate-400 hover:text-rose-500 p-1 cursor-pointer"
-                          title="Rimuovi questo feed"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Chat Input */}
-            <form onSubmit={sendInterviewMessage} className="p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex items-center gap-3 shrink-0">
-              <input
-                type="text"
-                value={interviewInput}
-                onChange={(e) => setInterviewInput(e.target.value)}
-                placeholder="Scrivi qui la tua risposta..."
-                className="flex-1 min-w-0 w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none shadow-xs transition-all"
-              />
-              <button
-                type="submit"
-                disabled={interviewLoading || !interviewInput.trim()}
-                className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-colors cursor-pointer shrink-0 shadow-xs flex items-center gap-2"
-              >
-                Invia
-              </button>
-            </form>
-
-          </div>
-        </div>
-      )}
+      <AiProfileInterviewModal
+        isOpen={interviewOpen}
+        messages={interviewMessages}
+        loading={interviewLoading}
+        input={interviewInput}
+        pendingExtracted={pendingExtracted}
+        pendingSuggestedFeeds={pendingSuggestedFeeds}
+        onClose={() => setInterviewOpen(false)}
+        onInputChange={setInterviewInput}
+        onSubmit={sendInterviewMessage}
+        onApplyExtracted={applyExtractedInterests}
+        onRemovePendingInterest={(index) => setPendingExtracted(prev => prev.filter((_, i) => i !== index))}
+        onRemovePendingFeed={(index) => setPendingSuggestedFeeds(prev => prev.filter((_, i) => i !== index))}
+      />
 
       {/* Reset All Confirmation Overlay */}
       <ConfirmOverlay
@@ -1344,7 +961,6 @@ export default function SettingsPanel() {
         onCancel={() => setIsRegenerateConfirmOpen(false)}
       />
 
-    </div>
     </div>
   );
 }
