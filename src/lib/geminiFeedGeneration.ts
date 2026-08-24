@@ -24,16 +24,9 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export async function generateFeedsWithAI(
-  interests: { keyword: string, type: string, weight?: number }[],
-  existingFeeds: { url: string, name: string }[] = []
-): Promise<AIFeedSuggestion[]> {
-  const gemini = getGemini();
-
-  const positiveInterests = interests.filter(i => i.type === 'positive');
-  const negativeInterests = interests.filter(i => i.type === 'negative');
-
-  // Build fallback suggestions based on keywords and standard Italian & tech feeds
+function buildFallbackFeedSuggestions(
+  positiveInterests: { keyword: string; type: string; weight?: number }[],
+): AIFeedSuggestion[] {
   const fallbackSuggestions: AIFeedSuggestion[] = [
     {
       name: "ANSA Notizie",
@@ -68,11 +61,15 @@ export async function generateFeedsWithAI(
     });
   }
 
-  if (!gemini) {
-    return fallbackSuggestions;
-  }
+  return fallbackSuggestions;
+}
 
-  const prompt = `Sei un esperto curatore di notizie e feed RSS in italiano.
+function buildFeedGenerationPrompt(
+  positiveInterests: { keyword: string; type: string; weight?: number }[],
+  negativeInterests: { keyword: string; type: string; weight?: number }[],
+  existingFeeds: { url: string; name: string }[],
+): string {
+  return `Sei un esperto curatore di notizie e feed RSS in italiano.
 L'utente desidera arricchire il proprio aggregatore di notizie con feed RSS pertinenti e di alta qualità.
 
 REGOLE CRITICHE DI VALIDAZIONE:
@@ -107,6 +104,66 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON valido nel seguente formato:
     }
   ]
 }`;
+}
+
+function parseGeneratedFeeds(responseText: string): AIFeedSuggestion[] {
+  const parsed = JSON.parse(responseText);
+  if (!Array.isArray(parsed.feeds) || parsed.feeds.length === 0) {
+    return [];
+  }
+
+  return parsed.feeds.map((f: FeedSuggestionCandidate) => ({
+    name: String(f.name || "Fonte Notizie"),
+    url: String(f.url || "").trim(),
+    type: f.type || 'rss',
+    verified: f.verified !== undefined ? Boolean(f.verified) : false,
+    confidence: typeof f.confidence === 'number' ? f.confidence : 0.0,
+    reason: String(f.reason || "Consigliato dall'AI in base ai tuoi interessi."),
+    category: String(f.category || "Generale")
+  })).filter((f: AIFeedSuggestion) => f.url && f.url.startsWith("http"));
+}
+
+function buildInterviewPrompt(messages: { role: 'user' | 'assistant', content: string }[]): string {
+  return `Sei l'assistente IA esperto di ricerca sorgenti notizie (feed RSS) per un aggregatore intelligente in italiano.
+Il tuo compito è condurre una conversazione e intervista interattiva con l'utente per scoprire i suoi argomenti preferiti e TROVARE FEED RSS/GOOGLE NEWS PERTINENTI (specialmente per città/località come "Lucca", "Toscana" o settori specifici come "Formula 1", "IA", "Economia").
+
+Cronologia della conversazione finora:
+${messages.map(m => `${m.role === 'user' ? 'Utente' : 'Assistente'}: ${m.content}`).join('\n')}
+
+Istruzioni:
+1. Fai una conversazione naturale, cordiale e stimolante in ITALIANO.
+2. Identifica le passioni o gli argomenti emersi e le eventuali località o città menzionate.
+3. Se l'utente menziona argomenti o località (es. "Lucca", "Formula 1", "Finanza"), TROVA e SUGGERISCI fino a 4 feed RSS reali o feed Google News dedicati ("https://news.google.com/rss/search?q={ARGOMENTO_O_CITTA_CODIFICATA}&hl=it&gl=IT&ceid=IT:it").
+4. Rispondi ESCLUSIVAMENTE con un JSON valido nel seguente formato:
+{
+  "reply": "Il tuo messaggio di risposta amichevole...",
+  "extractedInterests": [],
+  "suggestedFeeds": [
+    {
+      "name": "Google News: Lucca",
+      "url": "https://news.google.com/rss/search?q=Lucca&hl=it&gl=IT&ceid=IT:it",
+      "reason": "Sorgente RSS per notizie e aggiornamenti in tempo reale su Lucca",
+      "category": "Locale"
+    }
+  ]
+}`;
+}
+
+export async function generateFeedsWithAI(
+  interests: { keyword: string, type: string, weight?: number }[],
+  existingFeeds: { url: string, name: string }[] = []
+): Promise<AIFeedSuggestion[]> {
+  const gemini = getGemini();
+
+  const positiveInterests = interests.filter(i => i.type === 'positive');
+  const negativeInterests = interests.filter(i => i.type === 'negative');
+  const fallbackSuggestions = buildFallbackFeedSuggestions(positiveInterests);
+
+  if (!gemini) {
+    return fallbackSuggestions;
+  }
+
+  const prompt = buildFeedGenerationPrompt(positiveInterests, negativeInterests, existingFeeds);
 
   try {
     const response = await gemini.models.generateContent({
@@ -119,17 +176,9 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON valido nel seguente formato:
     });
     if (response.text) {
       try {
-        const parsed = JSON.parse(response.text);
-        if (Array.isArray(parsed.feeds) && parsed.feeds.length > 0) {
-          return parsed.feeds.map((f: FeedSuggestionCandidate) => ({
-            name: String(f.name || "Fonte Notizie"),
-            url: String(f.url || "").trim(),
-            type: f.type || 'rss',
-            verified: f.verified !== undefined ? Boolean(f.verified) : false,
-            confidence: typeof f.confidence === 'number' ? f.confidence : 0.0,
-            reason: String(f.reason || "Consigliato dall'AI in base ai tuoi interessi."),
-            category: String(f.category || "Generale")
-          })).filter((f: AIFeedSuggestion) => f.url && f.url.startsWith("http"));
+        const suggestions = parseGeneratedFeeds(response.text);
+        if (suggestions.length > 0) {
+          return suggestions;
         }
       } catch (err: unknown) {
         console.warn("Could not parse AI feed suggestion JSON:", getErrorMessage(err));
@@ -154,29 +203,7 @@ export async function runProfileInterview(
     };
   }
 
-  const prompt = `Sei l'assistente IA esperto di ricerca sorgenti notizie (feed RSS) per un aggregatore intelligente in italiano.
-Il tuo compito è condurre una conversazione e intervista interattiva con l'utente per scoprire i suoi argomenti preferiti e TROVARE FEED RSS/GOOGLE NEWS PERTINENTI (specialmente per città/località come "Lucca", "Toscana" o settori specifici come "Formula 1", "IA", "Economia").
-
-Cronologia della conversazione finora:
-${messages.map(m => `${m.role === 'user' ? 'Utente' : 'Assistente'}: ${m.content}`).join('\n')}
-
-Istruzioni:
-1. Fai una conversazione naturale, cordiale e stimolante in ITALIANO.
-2. Identifica le passioni o gli argomenti emersi e le eventuali località o città menzionate.
-3. Se l'utente menziona argomenti o località (es. "Lucca", "Formula 1", "Finanza"), TROVA e SUGGERISCI fino a 4 feed RSS reali o feed Google News dedicati ("https://news.google.com/rss/search?q={ARGOMENTO_O_CITTA_CODIFICATA}&hl=it&gl=IT&ceid=IT:it").
-4. Rispondi ESCLUSIVAMENTE con un JSON valido nel seguente formato:
-{
-  "reply": "Il tuo messaggio di risposta amichevole...",
-  "extractedInterests": [],
-  "suggestedFeeds": [
-    {
-      "name": "Google News: Lucca",
-      "url": "https://news.google.com/rss/search?q=Lucca&hl=it&gl=IT&ceid=IT:it",
-      "reason": "Sorgente RSS per notizie e aggiornamenti in tempo reale su Lucca",
-      "category": "Locale"
-    }
-  ]
-}`;
+  const prompt = buildInterviewPrompt(messages);
 
   try {
     const response = await gemini.models.generateContent({

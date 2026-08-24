@@ -69,13 +69,8 @@ const CATEGORY_FEEDS: { keywords: string[]; category: string; feeds: { name: str
   },
 ];
 
-export async function searchFeedsByKeyword(keyword: string): Promise<AIFeedSuggestion[]> {
-  const gemini = getGemini();
-  const cleanKeyword = (keyword || "").trim();
-  const encoded = encodeURIComponent(cleanKeyword);
-  const normalizedKeyword = cleanKeyword.toLowerCase();
-
-  const googleNewsFallback: AIFeedSuggestion = {
+function buildGoogleNewsFallback(cleanKeyword: string, encoded: string): AIFeedSuggestion {
+  return {
     name: `Google News: ${cleanKeyword}`,
     url: `https://news.google.com/rss/search?q=${encoded}&hl=it&gl=IT&ceid=IT:it`,
     reason: `Feed di ricerca Google News in tempo reale per "${cleanKeyword}".`,
@@ -84,29 +79,27 @@ export async function searchFeedsByKeyword(keyword: string): Promise<AIFeedSugge
     verified: true,
     confidence: 1.0
   };
+}
 
-  // Match the keyword against known categories (e.g. "sport", "tecnologia") to enrich
-  // the fallback with real, manually-verified sources beyond the generic Google News feed.
+function buildCuratedFallback(normalizedKeyword: string): AIFeedSuggestion[] {
   const matchedCategory = CATEGORY_FEEDS.find(c => c.keywords.some(k => normalizedKeyword.includes(k)));
-  const curatedFallback: AIFeedSuggestion[] = matchedCategory
-    ? matchedCategory.feeds.map(f => ({
-        name: f.name,
-        url: f.url,
-        reason: f.reason,
-        category: matchedCategory.category,
-        type: "rss" as const,
-        verified: true,
-        confidence: 1.0
-      }))
-    : [];
-
-  const fallback: AIFeedSuggestion[] = [...curatedFallback, googleNewsFallback];
-
-  if (!gemini || !cleanKeyword) {
-    return fallback;
+  if (!matchedCategory) {
+    return [];
   }
 
-  const prompt = `Sei un esperto curatore di notizie e feed RSS in italiano.
+  return matchedCategory.feeds.map(f => ({
+    name: f.name,
+    url: f.url,
+    reason: f.reason,
+    category: matchedCategory.category,
+    type: "rss" as const,
+    verified: true,
+    confidence: 1.0
+  }));
+}
+
+function buildSearchPrompt(cleanKeyword: string): string {
+  return `Sei un esperto curatore di notizie e feed RSS in italiano.
 L'utente sta cercando sorgenti e feed RSS relativi alla parola chiave o tema: "${cleanKeyword}".
 
 REGOLE CRITICHE:
@@ -130,6 +123,40 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON nel formato:
     }
   ]
 }`;
+}
+
+function parseSearchResults(responseText: string, cleanKeyword: string): AIFeedSuggestion[] {
+  const parsed = JSON.parse(responseText);
+  if (!Array.isArray(parsed.feeds) || parsed.feeds.length === 0) {
+    return [];
+  }
+
+  return parsed.feeds.map((f: FeedSearchCandidate) => ({
+    name: String(f.name || cleanKeyword),
+    url: String(f.url || "").trim(),
+    type: f.type || 'rss',
+    verified: f.verified !== undefined ? Boolean(f.verified) : false,
+    confidence: typeof f.confidence === 'number' ? f.confidence : 0.0,
+    reason: String(f.reason || `Feed trovato per "${cleanKeyword}"`),
+    category: String(f.category || "Generale")
+  })).filter((f: AIFeedSuggestion) => f.url && f.url.startsWith("http"));
+}
+
+export async function searchFeedsByKeyword(keyword: string): Promise<AIFeedSuggestion[]> {
+  const gemini = getGemini();
+  const cleanKeyword = (keyword || "").trim();
+  const encoded = encodeURIComponent(cleanKeyword);
+  const normalizedKeyword = cleanKeyword.toLowerCase();
+  const googleNewsFallback = buildGoogleNewsFallback(cleanKeyword, encoded);
+  const curatedFallback = buildCuratedFallback(normalizedKeyword);
+
+  const fallback: AIFeedSuggestion[] = [...curatedFallback, googleNewsFallback];
+
+  if (!gemini || !cleanKeyword) {
+    return fallback;
+  }
+
+  const prompt = buildSearchPrompt(cleanKeyword);
 
   try {
     const response = await gemini.models.generateContent({
@@ -142,21 +169,8 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON nel formato:
     });
 
     if (response.text) {
-      const parsed = JSON.parse(response.text);
-      if (Array.isArray(parsed.feeds) && parsed.feeds.length > 0) {
-        const aiResults: AIFeedSuggestion[] = parsed.feeds.map((f: FeedSearchCandidate) => ({
-          name: String(f.name || cleanKeyword),
-          url: String(f.url || "").trim(),
-          type: f.type || 'rss',
-          verified: f.verified !== undefined ? Boolean(f.verified) : false,
-          confidence: typeof f.confidence === 'number' ? f.confidence : 0.0,
-          reason: String(f.reason || `Feed trovato per "${cleanKeyword}"`),
-          category: String(f.category || "Generale")
-        })).filter((f: AIFeedSuggestion) => f.url && f.url.startsWith("http"));
-
-        // Prepend our manually-verified curated feeds (e.g. Serie A highlights) when the
-        // keyword matches a known category, so a real verified source is always offered
-        // instead of relying solely on the AI's (sometimes unverified) suggestions.
+      const aiResults = parseSearchResults(response.text, cleanKeyword);
+      if (aiResults.length > 0) {
         const curatedUrls = new Set(curatedFallback.map(f => f.url));
         return [...curatedFallback, ...aiResults.filter(f => !curatedUrls.has(f.url))];
       }

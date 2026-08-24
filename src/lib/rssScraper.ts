@@ -10,72 +10,110 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function getFetchProtocols(url: string): string[] {
+  const protocols = [url];
+  if (url.startsWith('https')) {
+    protocols.push(url.replace('https://', 'http://'));
+  }
+  return protocols;
+}
+
+async function tryFetchHtml(targetUrl: string): Promise<string> {
+  const response = await fetch(targetUrl, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/127.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Cache-Control": "no-cache"
+    }
+  });
+
+  if (!response.ok) {
+    console.warn(`Node fetch for ${targetUrl} returned status ${response.status}`);
+    return "";
+  }
+
+  const responseText = await decodeResponseText(response);
+  return responseText.length > 500 ? responseText : "";
+}
+
+async function tryCurlHtml(targetUrl: string): Promise<string> {
+  const { execSync } = await import('child_process');
+  const problematicSites = ['gazzettadilucca.it', 'loschermo.it', 'toscanagol.it'];
+  const isVeryProblematic = problematicSites.some(site => targetUrl.includes(site));
+
+  console.log(`Attempting system curl for ${targetUrl} (insecure mode)...`);
+  const timeout = isVeryProblematic ? 10 : 20;
+  const cmd = `curl -k -L -s -m ${timeout} -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/127.0.0.0 Safari/537.36" "${targetUrl}"`;
+  const output = execSync(cmd, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 2 });
+
+  if (output && output.length > 500) {
+    console.log(`System curl success for ${targetUrl} (${output.length} bytes)`);
+    return output;
+  }
+
+  return "";
+}
+
+async function tryFetchProtocol(targetUrl: string, isFallbackProtocol: boolean): Promise<string> {
+  if (isFallbackProtocol) {
+    await new Promise(resolve => setTimeout(resolve, 800));
+  }
+
+  try {
+    const fetchedHtml = await tryFetchHtml(targetUrl);
+    if (fetchedHtml) {
+      return fetchedHtml;
+    }
+  } catch (e: unknown) {
+    console.warn(`Node fetch failed for ${targetUrl}: ${getErrorMessage(e)}`);
+    throw e;
+  }
+
+  try {
+    return await tryCurlHtml(targetUrl);
+  } catch {
+    console.warn(`Curl execution failed for ${targetUrl} (likely timeout or block)`);
+    return "";
+  }
+}
+
+function isScrapeableHtmlDocument(html: string): boolean {
+  const trimmed = html.trim();
+  return Boolean(trimmed) && (trimmed.startsWith('<!DOCTYPE html') || trimmed.startsWith('<html') || trimmed.toLowerCase().includes('<html'));
+}
+
+async function createScraperConfigFromHtml(url: string, html: string, sourceName: string) {
+  const cleanedHtml = cleanHtmlForAI(html);
+  const config = await generateScraperConfig(url, cleanedHtml, sourceName);
+  if (!config) {
+    return null;
+  }
+
+  const items = applyScraperConfig(html, url, config);
+  return items.length > 0 ? { config, items } : null;
+}
+
+async function saveScraperConfig(feedId: number, config: ScraperConfig) {
+  await db.update(rssFeeds).set({ scraperConfig: config, scraperFailCount: 0 }).where(eq(rssFeeds.id, feedId));
+}
+
 /**
  * Robust HTML fetch (node fetch with http/https fallback + system curl fallback),
  * used both by the AI-based scraper and by the ad-hoc CSS-selector scraper.
  */
 export async function fetchHtmlWithFallback(url: string): Promise<string> {
-  const protocols = [url];
-  if (url.startsWith('https')) {
-    protocols.push(url.replace('https://', 'http://'));
-  }
+  const protocols = getFetchProtocols(url);
 
   let lastError = null;
 
-  for (const targetUrl of protocols) {
-    let responseText = "";
-    let fetchSuccess = false;
-
+  for (const [index, targetUrl] of protocols.entries()) {
     try {
-      if (targetUrl !== protocols[0]) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-      }
-
-      const response = await fetch(targetUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/127.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Cache-Control": "no-cache"
-        }
-      });
-
-      if (response.ok) {
-        responseText = await decodeResponseText(response);
-        if (responseText.length > 500) {
-          fetchSuccess = true;
-        }
-      } else {
-        console.warn(`Node fetch for ${targetUrl} returned status ${response.status}`);
+      const html = await tryFetchProtocol(targetUrl, index > 0);
+      if (html) {
+        return html;
       }
     } catch (e: unknown) {
       lastError = e;
-      console.warn(`Node fetch failed for ${targetUrl}: ${getErrorMessage(e)}`);
-    }
-
-    if (!fetchSuccess) {
-      try {
-        const { execSync } = await import('child_process');
-        const problematicSites = ['gazzettadilucca.it', 'loschermo.it', 'toscanagol.it'];
-        const isVeryProblematic = problematicSites.some(site => targetUrl.includes(site));
-
-        console.log(`Attempting system curl for ${targetUrl} (insecure mode)...`);
-        const timeout = isVeryProblematic ? 10 : 20;
-        const cmd = `curl -k -L -s -m ${timeout} -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/127.0.0.0 Safari/537.36" "${targetUrl}"`;
-
-        try {
-          const output = execSync(cmd, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 2 });
-          if (output && output.length > 500) {
-            console.log(`System curl success for ${targetUrl} (${output.length} bytes)`);
-            return output;
-          }
-        } catch {
-          console.warn(`Curl execution failed for ${targetUrl} (likely timeout or block)`);
-        }
-      } catch (curlErr: unknown) {
-        lastError = curlErr;
-      }
-    } else {
-      return responseText;
     }
   }
   throw lastError || new Error("All fetch methods failed");
@@ -149,24 +187,18 @@ export async function ensureScraperConfigForFeed(feedId: number, url: string, so
     }
 
     const html = await fetchHtmlWithFallback(url);
-    const trimmed = html.trim();
-    if (!trimmed || (!trimmed.startsWith('<!DOCTYPE html') && !trimmed.startsWith('<html') && !trimmed.toLowerCase().includes('<html'))) {
+    if (!isScrapeableHtmlDocument(html)) {
       return { createdTransformer: false, validRss: false, itemCount: 0, reason: "Pagina non analizzabile (né RSS valido né HTML scrapeabile)." };
     }
 
-    const cleanedHtml = cleanHtmlForAI(html);
-    const config = await generateScraperConfig(url, cleanedHtml, sourceName);
-    if (!config) {
+    const generated = await createScraperConfigFromHtml(url, html, sourceName);
+    if (!generated) {
       return { createdTransformer: false, validRss: false, itemCount: 0, reason: "L'AI non è riuscita a generare un trasformatore per questa pagina." };
     }
 
-    const items = applyScraperConfig(html, url, config);
-    if (items.length > 0) {
-      await db.update(rssFeeds).set({ scraperConfig: config, scraperFailCount: 0 }).where(eq(rssFeeds.id, feedId));
-      console.log(`Ad-hoc transformer created for ${sourceName} (${items.length} items)`);
-      return { createdTransformer: true, validRss: false, itemCount: items.length };
-    }
-    return { createdTransformer: false, validRss: false, itemCount: 0, reason: "Trasformatore generato ma 0 articoli estratti." };
+    await saveScraperConfig(feedId, generated.config);
+    console.log(`Ad-hoc transformer created for ${sourceName} (${generated.items.length} items)`);
+    return { createdTransformer: true, validRss: false, itemCount: generated.items.length };
   } catch (e: unknown) {
     console.warn(`Could not create ad-hoc transformer for ${sourceName}:`, getErrorMessage(e));
     return { createdTransformer: false, validRss: false, itemCount: 0, reason: getErrorMessage(e) || "Errore imprevisto." };

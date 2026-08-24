@@ -112,16 +112,8 @@ type PushErrorLike = {
   message?: string;
 };
 
-export async function sendPushToAll(payload: NotificationPayload) {
-  initializeVapid();
-  
-  const allSubs = await db.select().from(pushSubscriptions);
-  if (allSubs.length === 0) {
-    console.log("No active push subscriptions found.");
-    return { sent: 0, failed: 0 };
-  }
-
-  const stringifiedPayload = JSON.stringify({
+function buildPushPayload(payload: NotificationPayload): string {
+  return JSON.stringify({
     title: payload.title,
     body: payload.body,
     icon: payload.icon || "/icon.png",
@@ -133,37 +125,108 @@ export async function sendPushToAll(payload: NotificationPayload) {
       ...payload.data
     }
   });
+}
+
+function buildPushSubscription(sub: typeof pushSubscriptions.$inferSelect) {
+  return {
+    endpoint: sub.endpoint,
+    keys: {
+      p256dh: sub.p256dh,
+      auth: sub.auth
+    }
+  };
+}
+
+async function cleanupExpiredSubscription(subscriptionId: number) {
+  try {
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, subscriptionId));
+  } catch {
+    // ignore
+  }
+}
+
+async function sendPushToSubscription(
+  sub: typeof pushSubscriptions.$inferSelect,
+  stringifiedPayload: string,
+): Promise<boolean> {
+  try {
+    await webpush.sendNotification(buildPushSubscription(sub), stringifiedPayload, {
+      TTL: 86400,
+      urgency: "high"
+    });
+    return true;
+  } catch (err: unknown) {
+    const pushError = err as PushErrorLike;
+    console.warn(`Error sending push to ${sub.endpoint.slice(0, 30)}...:`, pushError.statusCode || getErrorMessage(err));
+    if (pushError.statusCode === 404 || pushError.statusCode === 410) {
+      await cleanupExpiredSubscription(sub.id);
+    }
+    return false;
+  }
+}
+
+async function getPushThreshold(): Promise<number> {
+  let threshold = 80;
+  try {
+    const settingRow = await db.select().from(appSettings).where(eq(appSettings.key, "push_threshold")).get();
+    if (settingRow && settingRow.value) {
+      const parsed = parseInt(settingRow.value, 10);
+      if (!isNaN(parsed)) {
+        threshold = parsed;
+      }
+    }
+  } catch {}
+
+  return threshold;
+}
+
+function buildHighRelevanceNotification(article: typeof articles.$inferSelect): NotificationPayload {
+  const score = Math.round(article.aiRelevance || 80);
+  const tagText = Array.isArray(article.aiTags) && article.aiTags.length > 0
+    ? ` • ${article.aiTags.slice(0, 2).join(", ")}`
+    : "";
+
+  return {
+    title: `🔥 Notizia ad Alta Rilevanza (${score}%)${tagText}`,
+    body: article.title,
+    icon: article.imageUrl || "/icon.png",
+    image: article.imageUrl || undefined,
+    url: article.link || "/",
+    tag: `high-rel-${article.id}`,
+    data: {
+      articleId: article.id,
+      url: article.link || "/",
+      score
+    }
+  };
+}
+
+async function markArticleAsNotified(articleId: number) {
+  await db
+    .update(articles)
+    .set({ isNotified: true })
+    .where(eq(articles.id, articleId));
+}
+
+export async function sendPushToAll(payload: NotificationPayload) {
+  initializeVapid();
+  
+  const allSubs = await db.select().from(pushSubscriptions);
+  if (allSubs.length === 0) {
+    console.log("No active push subscriptions found.");
+    return { sent: 0, failed: 0 };
+  }
+
+  const stringifiedPayload = buildPushPayload(payload);
 
   let sent = 0;
   let failed = 0;
 
   for (const sub of allSubs) {
-    const pushSub = {
-      endpoint: sub.endpoint,
-      keys: {
-        p256dh: sub.p256dh,
-        auth: sub.auth
-      }
-    };
-
-    try {
-      await webpush.sendNotification(pushSub, stringifiedPayload, {
-        TTL: 86400, // 24 hours
-        urgency: "high"
-      });
+    if (await sendPushToSubscription(sub, stringifiedPayload)) {
       sent++;
-    } catch (err: unknown) {
-      const pushError = err as PushErrorLike;
-      console.warn(`Error sending push to ${sub.endpoint.slice(0, 30)}...:`, pushError.statusCode || getErrorMessage(err));
+    } else {
       failed++;
-      // If subscription is 404 or 410 (Gone), delete it
-      if (pushError.statusCode === 404 || pushError.statusCode === 410) {
-        try {
-          await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
-        } catch {
-          // ignore
-        }
-      }
     }
   }
 
@@ -213,15 +276,7 @@ export async function sendTestPush(endpoint?: string) {
  */
 export async function notifyNewHighRelevanceArticles() {
   try {
-    let threshold = 80;
-    try {
-      const settingRow = await db.select().from(appSettings).where(eq(appSettings.key, "push_threshold")).get();
-      if (settingRow && settingRow.value) {
-        const parsed = parseInt(settingRow.value, 10);
-        if (!isNaN(parsed)) threshold = parsed;
-      }
-    } catch {}
-
+    const threshold = await getPushThreshold();
     const candidateArticles = await db
       .select()
       .from(articles)
@@ -237,30 +292,8 @@ export async function notifyNewHighRelevanceArticles() {
     if (candidateArticles.length === 0) return;
 
     for (const article of candidateArticles) {
-      const score = Math.round(article.aiRelevance || 80);
-      const tagText = Array.isArray(article.aiTags) && article.aiTags.length > 0 
-        ? ` • ${article.aiTags.slice(0, 2).join(", ")}` 
-        : "";
-
-      await sendPushToAll({
-        title: `🔥 Notizia ad Alta Rilevanza (${score}%)${tagText}`,
-        body: article.title,
-        icon: article.imageUrl || "/icon.png",
-        image: article.imageUrl || undefined,
-        url: article.link || "/",
-        tag: `high-rel-${article.id}`,
-        data: {
-          articleId: article.id,
-          url: article.link || "/",
-          score: score
-        }
-      });
-
-      // Mark article as notified
-      await db
-        .update(articles)
-        .set({ isNotified: true })
-        .where(eq(articles.id, article.id));
+      await sendPushToAll(buildHighRelevanceNotification(article));
+      await markArticleAsNotified(article.id);
     }
   } catch (err: unknown) {
     console.error("Error sending high relevance push notifications:", err);
