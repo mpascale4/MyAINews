@@ -1,11 +1,14 @@
-import Parser from "rss-parser";
+﻿import Parser from "rss-parser";
 import { db } from "../db";
 import { articles, rssFeeds, interests } from "../db/schema";
 import { eq, inArray, like, sql } from "drizzle-orm";
-import { processArticleWithAI, scrapeArticlesWithAI, generateScraperConfig } from "./gemini";
-import { applyScraperConfig, type ScraperConfig, type ScrapedArticle } from "./scraper";
-
+import { processArticleWithAI, generateScraperConfig } from "./gemini";
+import { applyScraperConfig, type ScraperConfig } from "./scraper";
 import { extractDefaultTags } from "./tagExtractor";
+import { decodeResponseText, extractImageUrl, normalizeLink, stripHtml, cleanHtmlForAI } from "./rssTextUtils";
+import { scrapeSourceWithAdHocTransformer, ensureScraperConfigForFeed } from "./rssScraper";
+
+export { normalizeLink, ensureScraperConfigForFeed };
 
 const DEFAULT_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -26,102 +29,7 @@ const parser = new Parser({
   }
 });
 
-/**
- * Decodes an HTTP response body respecting the charset declared either in the
- * Content-Type header or in the XML/HTML prologue (<?xml ... encoding="...">
- * or <meta charset="...">). fetch()'s response.text() always assumes UTF-8,
- * which corrupts accented characters (mojibake, e.g. "riuscir�") for feeds
- * served in ISO-8859-1/Windows-1252, common among Italian news sites.
- */
-async function decodeResponseText(response: Response): Promise<string> {
-  const buffer = Buffer.from(await response.arrayBuffer());
-
-  let charset = "";
-  const contentType = response.headers.get("content-type") || "";
-  const headerMatch = contentType.match(/charset=([^;]+)/i);
-  if (headerMatch) charset = headerMatch[1].trim().toLowerCase();
-
-  if (!charset) {
-    // Sniff the declared encoding from the first bytes (XML prologue or HTML meta tag)
-    const head = buffer.slice(0, 512).toString("ascii");
-    const xmlMatch = head.match(/<\?xml[^>]*encoding=["']([^"']+)["']/i);
-    const metaMatch = head.match(/<meta[^>]*charset=["']?([a-z0-9\-_]+)/i);
-    if (xmlMatch) charset = xmlMatch[1].trim().toLowerCase();
-    else if (metaMatch) charset = metaMatch[1].trim().toLowerCase();
-  }
-
-  if (charset && charset !== "utf-8" && charset !== "utf8") {
-    try {
-      return new TextDecoder(charset).decode(buffer);
-    } catch (e) {
-      // Unsupported/unknown label, fall through to UTF-8
-    }
-  }
-
-  return buffer.toString("utf-8");
-}
-
-
-function extractImageUrl(item: any): string | null {
-  if (item.mediaContent && item.mediaContent.length > 0) {
-    return item.mediaContent[0]['$']?.url || null;
-  }
-  if (item.contentEncoded) {
-    const match = item.contentEncoded.match(/<img[^>]+src="([^">]+)"/);
-    if (match) return match[1];
-  }
-  if (item.content) {
-    const match = item.content.match(/<img[^>]+src="([^">]+)"/);
-    if (match) return match[1];
-  }
-  return null;
-}
-
-// Normalizes a link for deduplication purposes. Query strings are usually just
-// tracking params and can be safely dropped, but some sites (notably YouTube's
-// /watch?v=... URLs) use the query string itself to identify the resource, so
-// stripping it there would collapse every video into the same "duplicate" link.
-export function normalizeLink(link: string): string {
-  const trimmed = (link || '').trim().toLowerCase();
-  if (!trimmed) return '';
-  if (trimmed.includes('youtube.com/watch') || trimmed.includes('youtu.be/')) {
-    return trimmed.split('#')[0];
-  }
-  return trimmed.split('?')[0].split('#')[0];
-}
-
-function stripHtml(html: string | undefined): string {
-  if (!html) return '';
-  return html.replace(/<[^>]*>?/gm, '');
-}
-
-function cleanHtmlForAI(html: string): string {
-  // Remove scripts, styles, and other non-content tags to save tokens
-  let cleaned = html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '')
-    .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '') // remove navigation
-    .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '') // remove footer
-    .replace(/<!--[\s\S]*?-->/g, '') // remove comments
-    .replace(/\s\s+/g, ' ') // collapse whitespace
-    .trim();
-
-  // If still too large, try to find a main content area
-  if (cleaned.length > 30000) {
-    const mainMatch = cleaned.match(/<main\b[^<]*>([\s\S]*?)<\/main>/i) || 
-                      cleaned.match(/<div\b[^>]*id="content"[^>]*>([\s\S]*?)<\/div>/i) ||
-                      cleaned.match(/<div\b[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-    if (mainMatch) {
-      cleaned = mainMatch[1];
-    }
-  }
-
-  return cleaned.substring(0, 20000); // hard cap at 20k chars for AI analysis
-}
-
-async function fetchFeedWithFallback(originalUrl: string, feedName: string): Promise<Parser.Output<{ [key: string]: any }> | null> {
+export async function fetchFeedWithFallback(originalUrl: string, feedName: string): Promise<Parser.Output<{ [key: string]: any }> | null> {
   const url = originalUrl.trim();
   const candidateUrls = [url];
 
@@ -287,169 +195,6 @@ export async function testFeedUrl(url: string): Promise<{
     }
   } catch (err: any) {
     return { isValidRss: false, isScrapeableHtml: false, error: err.message || "Errore sconosciuto durante il test." };
-  }
-}
-
-/**
- * Robust HTML fetch (node fetch with http/https fallback + system curl fallback),
- * used both by the AI-based scraper and by the ad-hoc CSS-selector scraper.
- */
-async function fetchHtmlWithFallback(url: string): Promise<string> {
-  const protocols = [url];
-  if (url.startsWith('https')) {
-    protocols.push(url.replace('https://', 'http://'));
-  }
-
-  let lastError = null;
-
-  for (const targetUrl of protocols) {
-    let responseText = "";
-    let fetchSuccess = false;
-
-    try {
-      if (targetUrl !== protocols[0]) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-      }
-
-      const response = await fetch(targetUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/127.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Cache-Control": "no-cache"
-        }
-      });
-
-      if (response.ok) {
-        responseText = await decodeResponseText(response);
-        if (responseText.length > 500) {
-          fetchSuccess = true;
-        }
-      } else {
-        console.warn(`Node fetch for ${targetUrl} returned status ${response.status}`);
-      }
-    } catch (e: any) {
-      lastError = e;
-      console.warn(`Node fetch failed for ${targetUrl}: ${e.message}`);
-    }
-
-    if (!fetchSuccess) {
-      try {
-        const { execSync } = await import('child_process');
-        const problematicSites = ['gazzettadilucca.it', 'loschermo.it', 'toscanagol.it'];
-        const isVeryProblematic = problematicSites.some(site => targetUrl.includes(site));
-
-        console.log(`Attempting system curl for ${targetUrl} (insecure mode)...`);
-        const timeout = isVeryProblematic ? 10 : 20;
-        const cmd = `curl -k -L -s -m ${timeout} -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/127.0.0.0 Safari/537.36" "${targetUrl}"`;
-
-        try {
-          const output = execSync(cmd, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 2 });
-          if (output && output.length > 500) {
-            console.log(`System curl success for ${targetUrl} (${output.length} bytes)`);
-            return output;
-          }
-        } catch (e) {
-          console.warn(`Curl execution failed for ${targetUrl} (likely timeout or block)`);
-        }
-      } catch (curlErr: any) {
-        lastError = curlErr;
-      }
-    } else {
-      return responseText;
-    }
-  }
-  throw lastError || new Error("All fetch methods failed");
-}
-
-/**
- * Ad-hoc scraper strategy for a source whose RSS feed is empty/unavailable.
- *
- * 1. If the feed already has a saved ScraperConfig (CSS selectors), apply it
- *    with cheerio (no AI call). This is the cheap, reusable path.
- * 2. If there's no saved config, or the saved one now yields 0 articles
- *    (self-healing: the site layout probably changed), ask the AI to
- *    (re)generate a ScraperConfig from the current HTML and persist it.
- * 3. If a working config still can't be produced, fall back to the generic
- *    one-shot AI scraper (scrapeArticlesWithAI) so we still get articles this
- *    cycle, without saving any reusable config.
- */
-async function scrapeSourceWithAdHocTransformer(feed: { id: number; url: string; name: string; scraperConfig: ScraperConfig | null }): Promise<ScrapedArticle[] | any[]> {
-  const html = await fetchHtmlWithFallback(feed.url);
-  console.log(`Fetched ${html.length} bytes of HTML for ${feed.name}`);
-
-  if (feed.scraperConfig) {
-    try {
-      const items = applyScraperConfig(html, feed.url, feed.scraperConfig);
-      if (items.length > 0) {
-        console.log(`Extracted ${items.length} items for ${feed.name} via saved ad-hoc transformer`);
-        return items;
-      }
-      console.log(`Saved ad-hoc transformer for ${feed.name} returned 0 articles, regenerating (self-healing)...`);
-    } catch (e: any) {
-      console.warn(`Saved ad-hoc transformer failed for ${feed.name}, regenerating:`, e.message || e);
-    }
-  }
-
-  const cleanedHtml = cleanHtmlForAI(html);
-  const newConfig = await generateScraperConfig(feed.url, cleanedHtml, feed.name);
-  if (newConfig) {
-    try {
-      const items = applyScraperConfig(html, feed.url, newConfig);
-      if (items.length > 0) {
-        await db.update(rssFeeds).set({ scraperConfig: newConfig, scraperFailCount: 0 }).where(eq(rssFeeds.id, feed.id));
-        console.log(`Generated and saved new ad-hoc transformer for ${feed.name} (${items.length} items)`);
-        return items;
-      }
-    } catch (e: any) {
-      console.warn(`Newly generated ad-hoc transformer failed for ${feed.name}:`, e.message || e);
-    }
-  }
-
-  // Last resort: generic one-shot AI extraction, without a reusable config.
-  console.log(`Falling back to generic AI scraper for ${feed.name}...`);
-  await db.update(rssFeeds).set({ scraperFailCount: sql`${rssFeeds.scraperFailCount} + 1` }).where(eq(rssFeeds.id, feed.id));
-  return await scrapeArticlesWithAI(feed.url, cleanedHtml, feed.name);
-}
-
-/**
- * Tries to set up an ad-hoc scraper config for a feed whose RSS turns out to
- * be invalid but whose HTML is scrapeable. Returns a summary of what happened
- * so callers can give the user feedback; also safe to call fire-and-forget.
- */
-export async function ensureScraperConfigForFeed(feedId: number, url: string, sourceName: string): Promise<{
-  createdTransformer: boolean;
-  validRss: boolean;
-  itemCount: number;
-  reason?: string;
-}> {
-  try {
-    const parsedFeed = await fetchFeedWithFallback(url, sourceName);
-    if (parsedFeed) {
-      return { createdTransformer: false, validRss: true, itemCount: (parsedFeed.items || []).length };
-    }
-
-    const html = await fetchHtmlWithFallback(url);
-    const trimmed = html.trim();
-    if (!trimmed || (!trimmed.startsWith('<!DOCTYPE html') && !trimmed.startsWith('<html') && !trimmed.toLowerCase().includes('<html'))) {
-      return { createdTransformer: false, validRss: false, itemCount: 0, reason: "Pagina non analizzabile (né RSS valido né HTML scrapeabile)." };
-    }
-
-    const cleanedHtml = cleanHtmlForAI(html);
-    const config = await generateScraperConfig(url, cleanedHtml, sourceName);
-    if (!config) {
-      return { createdTransformer: false, validRss: false, itemCount: 0, reason: "L'AI non è riuscita a generare un trasformatore per questa pagina." };
-    }
-
-    const items = applyScraperConfig(html, url, config);
-    if (items.length > 0) {
-      await db.update(rssFeeds).set({ scraperConfig: config, scraperFailCount: 0 }).where(eq(rssFeeds.id, feedId));
-      console.log(`Ad-hoc transformer created for ${sourceName} (${items.length} items)`);
-      return { createdTransformer: true, validRss: false, itemCount: items.length };
-    }
-    return { createdTransformer: false, validRss: false, itemCount: 0, reason: "Trasformatore generato ma 0 articoli estratti." };
-  } catch (e: any) {
-    console.warn(`Could not create ad-hoc transformer for ${sourceName}:`, e.message || e);
-    return { createdTransformer: false, validRss: false, itemCount: 0, reason: e.message || "Errore imprevisto." };
   }
 }
 
