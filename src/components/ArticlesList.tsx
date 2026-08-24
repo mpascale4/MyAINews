@@ -1041,9 +1041,13 @@ export default function ArticlesList() {
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">AI Summary Completo</h2>
-                  <p className="text-xs font-normal text-slate-500 dark:text-slate-400">
-                    {selectedSummary.source} â€¢ {selectedSummary.pubDate ? format(new Date(selectedSummary.pubDate), "d MMMM yyyy, HH:mm", { locale: it }) : ''}
-                  </p>
+                  {(selectedSummary.source || selectedSummary.pubDate) && (
+                    <p className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                      {selectedSummary.source}
+                      {selectedSummary.source && selectedSummary.pubDate ? " • " : ""}
+                      {selectedSummary.pubDate ? format(new Date(selectedSummary.pubDate), "d MMMM yyyy, HH:mm", { locale: it }) : ''}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-1.5">

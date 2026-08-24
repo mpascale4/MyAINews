@@ -4,9 +4,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
-import { it } from "date-fns/locale";
-import { BookOpen, Home, Settings, BarChart2, Bell, Sun, Moon, RefreshCw, Sparkles, Calendar, X, CheckCircle2, Bookmark, Trash2 } from "lucide-react";
+import { BookOpen, Home, Settings, BarChart2, Bell, Sun, Moon, Bookmark, Trash2 } from "lucide-react";
 import ArticlesList from "./components/ArticlesList";
 import ReadLaterPage from "./components/ReadLaterPage";
 import Dashboard from "./components/Dashboard";
@@ -27,10 +25,7 @@ export default function App() {
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(true); // Default to true, let useEffect override
   const [isLoading, setIsLoading] = useState(true);
   
-  // Daily Feed Prompt State
-  const [showDailyPrompt, setShowDailyPrompt] = useState(false);
-  const [isUpdatingDaily, setIsUpdatingDaily] = useState(false);
-  const [dailyUpdateDone, setDailyUpdateDone] = useState(false);
+  // Daily Feed auto-refresh: silently trigger a fetch on first app open of the day (no popup).
 
   useEffect(() => {
     // Check onboarding status
@@ -38,11 +33,14 @@ export default function App() {
     if (!isComplete) {
       setOnboardingComplete(false);
     } else {
-      // Check if it's the first app open of the day
+      // First app open of the day: refresh feeds silently in the background, no popup.
       const today = getTodayDateString();
       const lastPromptDate = localStorage.getItem("lastDailyFeedPromptDate");
       if (lastPromptDate !== today) {
-        setShowDailyPrompt(true);
+        localStorage.setItem("lastDailyFeedPromptDate", today);
+        fetch('/api/fetch', { method: 'POST' })
+          .then(() => window.dispatchEvent(new CustomEvent('refresh-articles')))
+          .catch(e => console.error("Error during daily feed update:", e));
       }
     }
     setIsLoading(false);
@@ -65,33 +63,6 @@ export default function App() {
         console.warn("Could not fetch high relevance articles:", err);
       });
   }, []);
-
-  const handleDismissDailyPrompt = () => {
-    localStorage.setItem("lastDailyFeedPromptDate", getTodayDateString());
-    setShowDailyPrompt(false);
-  };
-
-  const handleConfirmDailyUpdate = async () => {
-    setIsUpdatingDaily(true);
-    try {
-      await fetch('/api/fetch', { method: 'POST' });
-      localStorage.setItem("lastDailyFeedPromptDate", getTodayDateString());
-      setDailyUpdateDone(true);
-      window.dispatchEvent(new CustomEvent('refresh-articles'));
-      
-      // Close modal smoothly after brief success display
-      setTimeout(() => {
-        setShowDailyPrompt(false);
-        setIsUpdatingDaily(false);
-        setDailyUpdateDone(false);
-      }, 1200);
-    } catch (e) {
-      console.error("Error during daily feed update:", e);
-      localStorage.setItem("lastDailyFeedPromptDate", getTodayDateString());
-      setShowDailyPrompt(false);
-      setIsUpdatingDaily(false);
-    }
-  };
 
   if (isLoading) {
     return <div className="h-screen bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 flex items-center justify-center">Caricamento...</div>;
@@ -298,97 +269,6 @@ export default function App() {
           <span className="text-[10px] font-medium">Profilo</span>
         </button>
       </nav>
-
-      {/* First Daily Open Prompt Modal */}
-      {showDailyPrompt && (
-        <div 
-          className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200"
-          onClick={handleDismissDailyPrompt}
-        >
-          <div 
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 transition-colors"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header Banner */}
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-gradient-to-r from-indigo-50/80 via-indigo-50/40 to-slate-50 dark:from-indigo-950/50 dark:via-indigo-950/30 dark:to-slate-900">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                  <RefreshCw className={`w-6 h-6 ${isUpdatingDaily ? 'animate-spin' : ''}`} />
-                </div>
-                <div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold uppercase tracking-wider mb-1">
-                    <Calendar className="w-3 h-3" />
-                    <span>{format(new Date(), "EEEE d MMMM", { locale: it })}</span>
-                  </div>
-                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg leading-tight">
-                    Primo Accesso di Oggi
-                  </h3>
-                </div>
-              </div>
-              <button 
-                onClick={handleDismissDailyPrompt} 
-                disabled={isUpdatingDaily}
-                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 space-y-4">
-              <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
-                Buongiorno! Vuoi controllare e aggiornare subito i tuoi feed RSS per scaricare e analizzare con l'AI le ultime notizie pubblicate?
-              </p>
-
-              {dailyUpdateDone ? (
-                <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-sm font-semibold">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>Feed aggiornati con successo! Caricamento notizie...</span>
-                </div>
-              ) : isUpdatingDaily ? (
-                <div className="flex items-center gap-3 p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 text-indigo-800 dark:text-indigo-200 text-sm font-medium">
-                  <RefreshCw className="w-5 h-5 text-indigo-600 dark:text-indigo-400 animate-spin shrink-0" />
-                  <span>Scaricamento e analisi AI in corso...</span>
-                </div>
-              ) : null}
-
-              {/* Action Buttons */}
-              <div className="space-y-2.5 pt-2">
-                <button
-                  onClick={handleConfirmDailyUpdate}
-                  disabled={isUpdatingDaily || dailyUpdateDone}
-                  className="w-full flex items-center justify-center gap-2.5 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-2xl text-sm transition-all shadow-xs active:scale-[0.99] disabled:opacity-70 cursor-pointer"
-                >
-                  {isUpdatingDaily ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Aggiornamento in corso...</span>
-                    </>
-                  ) : dailyUpdateDone ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Aggiornato!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>Aggiorna Notizie Ora</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={handleDismissDailyPrompt}
-                  disabled={isUpdatingDaily}
-                  className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-2xl text-sm transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  Più tardi
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
