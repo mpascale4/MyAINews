@@ -1,9 +1,9 @@
 ---
 applyTo: "**/*.tsx,**/*.ts"
-description: "Convenzioni React/TypeScript per Tabellandia (React 19 + Vite + Tailwind)"
+description: "Convenzioni React/TypeScript per MyAINews (React 19 + Vite + Tailwind)"
 ---
 
-# Istruzioni React/TypeScript – Tabellandia
+# Istruzioni React/TypeScript – MyAINews
 
 Queste regole si applicano automaticamente ai file `.ts`/`.tsx` di questo repo e
 integrano (non sostituiscono) `.github/copilot-instructions.md`.
