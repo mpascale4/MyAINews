@@ -1,3 +1,4 @@
 @import "tailwindcss";
+@import "@mp/app-kit/theme.css";
 
 @custom-variant dark (&:where(.dark, .dark *));

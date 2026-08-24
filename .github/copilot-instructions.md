@@ -255,6 +255,40 @@ Usa sempre questo pattern:
 
 ---
 
+## Integrazione @mp/app-kit (Mandatory)
+
+Questo progetto usa la libreria condivisa `@mp/app-kit` (dipendenza locale
+`file:../mp-app-kit`) per branding e qualità del codice comuni a tutte le
+app MP:
+
+- `<MpBranding />` montato nella root di `App.tsx` (badge MP + pannello
+  "Tutte le mie app").
+- `@import "@mp/app-kit/theme.css";` in `src/index.css` dopo l'import di
+  Tailwind.
+- ESLint config condivisa in `eslint.config.js` (`@mp/app-kit/eslint-config`),
+  eseguita da `npm run lint` insieme a `tsc --noEmit`.
+- Favicon con badge MP obbligatorio nell'angolo in basso a destra
+  (`public/icon.svg` + set generato da `scripts/gen-favicon.mjs`,
+  `npm run gen:favicon`), vedi `mp-app-kit/BRANDING.md`.
+- Regole di stile del codice (dimensioni file/funzione, complessità, `any`,
+  DRY) definite in `mp-app-kit/CODE_STYLE.md`: applicarle a tutto il codice
+  nuovo; il codice esistente che le viola resta come debito tecnico noto,
+  da rifattorizzare solo in un task dedicato separato (rischio regressioni
+  troppo alto per farlo incidentalmente).
+
+## Icona header = favicon (Mandatory)
+
+L'header in-app deve mostrare la stessa immagine icona usata come favicon
+(`/icon.svg`), non un'emoji generica o un placeholder diverso. Vedi la
+regola completa e il razionale in `mp-app-kit/BRANDING.md`
+("Header icon consistency rule").
+
+```tsx
+<img src="/icon.svg" alt="..." className="h-8 w-8 rounded-xl object-cover shadow-sm" />
+```
+
+---
+
 ## Session Learnings
 
 - Per download automatici di asset audio da Wikimedia Commons, preferire endpoint `Special:FilePath/<nome-file>` con `User-Agent` esplicito e piccole pause tra richieste per ridurre errori `429 Too many requests`.

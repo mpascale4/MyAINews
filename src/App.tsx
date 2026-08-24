@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from "react";
 import { BookOpen, Home, Settings, BarChart2, Bell, Sun, Moon, Bookmark, Trash2 } from "lucide-react";
+import { MpBranding } from "@mp/app-kit";
 import ArticlesList from "./components/ArticlesList";
 import ReadLaterPage from "./components/ReadLaterPage";
 import Dashboard from "./components/Dashboard";
@@ -174,6 +175,7 @@ export default function App() {
         {/* Header */}
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 h-16 flex items-center justify-between px-4 md:px-8 shrink-0 transition-colors">
            <div className="flex items-center gap-3">
+             <img src="/icon.svg" alt="" className="h-8 w-8 rounded-xl shadow-sm hidden sm:block" />
              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
                 {activeTab === "home" 
                   ? "Le Tue Notizie" 
@@ -269,6 +271,7 @@ export default function App() {
           <span className="text-[10px] font-medium">Profilo</span>
         </button>
       </nav>
+      <MpBranding />
     </div>
   );
 }
