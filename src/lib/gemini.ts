@@ -6,31 +6,8 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function getGemini() {
-  if (!aiClient) {
-    if (process.env.GEMINI_API_KEY) {
-       aiClient = new GoogleGenAI({ 
-         apiKey: process.env.GEMINI_API_KEY,
-         httpOptions: {
-           headers: {
-             'User-Agent': 'aistudio-build',
-           }
-         }
-       });
-    } else {
-       console.warn("GEMINI_API_KEY is not set. AI features will be disabled.");
-    }
-  }
-  return aiClient;
-}
-
-export async function processArticleWithAI(title: string, content: string) {
-  const gemini = getGemini();
-  if (!gemini) {
-    return { summary: "AI Summary non disponibile (Chiave API non configurata).", relevance: 50 };
-  }
-
-  const prompt = `Sei un giornalista, curatore ed analista di notizie esperto. Il tuo compito è redigere un riassunto a DOPPIO LIVELLO (prima versione breve/sintetica, poi versione approfondita/estesa) in lingua ITALIANA della seguente notizia.
+function buildProcessArticlePrompt(title: string, content: string): string {
+  return `Sei un giornalista, curatore ed analista di notizie esperto. Il tuo compito è redigere un riassunto a DOPPIO LIVELLO (prima versione breve/sintetica, poi versione approfondita/estesa) in lingua ITALIANA della seguente notizia.
 
 REGOLE CRITICHE DI EVIDENZIAZIONE:
 - Evidenzia le parole chiave, nomi di enti/persone rilevanti, dati numerici cruciali e concetti di forte interesse racchiudendoli tra doppi asterischi (es. **Intelligenza Artificiale**, **15 miliardi di euro**, **Mario Draghi**, **nuove normative europee**).
@@ -64,43 +41,95 @@ Rispondi ESCLUSIVAMENTE con un JSON valido nel seguente formato:
   "relevance": 85,
   "tags": ["Tag1", "Tag2", "Tag3"]
 }`;
+}
 
-  try {
-    const response = await gemini.models.generateContent({
-      model: "gemini-3.1-flash-lite",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        temperature: 0.2
-      }
-    });
+type ArticleAIResult = {
+  summary: string;
+  relevance: number;
+  tags: string[];
+};
 
-    if (response.text) {
-      let parsed;
-      try {
-        parsed = JSON.parse(response.text);
-      } catch {
-        console.warn("JSON parse fallback for summary");
-      }
-      if (parsed && parsed.summary) {
-        return {
-          summary: parsed.summary,
-          relevance: typeof parsed.relevance === 'number' ? parsed.relevance : 50,
-          tags: Array.isArray(parsed.tags) ? parsed.tags : []
-        };
-      }
+async function generateArticleSummary(
+  gemini: GoogleGenAI,
+  prompt: string,
+): Promise<ArticleAIResult | null> {
+  const response = await gemini.models.generateContent({
+    model: "gemini-3.1-flash-lite",
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      temperature: 0.2
     }
-  } catch (err: unknown) {
-    console.warn("Gemini API warning:", getErrorMessage(err));
+  });
+
+  if (!response.text) {
+    return null;
   }
 
-  // Graceful fallback if Gemini API is unavailable or quota is exceeded
+  let parsed;
+  try {
+    parsed = JSON.parse(response.text);
+  } catch {
+    console.warn("JSON parse fallback for summary");
+    return null;
+  }
+
+  if (!parsed || !parsed.summary) {
+    return null;
+  }
+
+  return {
+    summary: parsed.summary,
+    relevance: typeof parsed.relevance === 'number' ? parsed.relevance : 50,
+    tags: Array.isArray(parsed.tags) ? parsed.tags : []
+  };
+}
+
+function buildArticleFallback(title: string, content: string): ArticleAIResult {
   const cleanSnippet = content ? content.substring(0, 300) : title;
   return {
     summary: `### SINTESI RAPIDA\n**${title}**\n\n${cleanSnippet}${cleanSnippet.length >= 300 ? '...' : ''}\n\n### QUADRO DETTAGLIATO\n${content || title}`,
     relevance: 50,
     tags: ["Notizia"]
   };
+}
+
+export function getGemini() {
+  if (!aiClient) {
+    if (process.env.GEMINI_API_KEY) {
+       aiClient = new GoogleGenAI({ 
+         apiKey: process.env.GEMINI_API_KEY,
+         httpOptions: {
+           headers: {
+             'User-Agent': 'aistudio-build',
+           }
+         }
+       });
+    } else {
+       console.warn("GEMINI_API_KEY is not set. AI features will be disabled.");
+    }
+  }
+  return aiClient;
+}
+
+export async function processArticleWithAI(title: string, content: string) {
+  const gemini = getGemini();
+  if (!gemini) {
+    return { summary: "AI Summary non disponibile (Chiave API non configurata).", relevance: 50, tags: [] };
+  }
+
+  const prompt = buildProcessArticlePrompt(title, content);
+
+  try {
+    const generated = await generateArticleSummary(gemini, prompt);
+    if (generated) {
+      return generated;
+    }
+  } catch (err: unknown) {
+    console.warn("Gemini API warning:", getErrorMessage(err));
+  }
+
+  return buildArticleFallback(title, content);
 }
 
 // Re-exported for backward compatibility: callers historically imported these
