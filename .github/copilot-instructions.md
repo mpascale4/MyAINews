@@ -2,10 +2,17 @@
 
 - When the user's message starts with the prefix `:interview` (alias `:i`), force plan mode: do not take any action (no code/file/command changes) on the text after the prefix until requirements are gathered. Instead, interview the user one question at a time (via `ask_user`, preferring multiple choice) to clarify goal, scope, affected files/tests, edge cases, and acceptance criteria. Only after the user confirms the gathered requirements, propose a plan and ask for explicit confirmation before executing.
 - When the user's message starts with the prefix `:f` or `:feature`, run this flow on the text after the prefix: (1) analyze it and propose a clear problem description, ask the user (`ask_user`) to confirm it; (2) once confirmed, propose a solution — using one-question-at-a-time interview clarifications if needed — and ask the user to confirm it; (3) once confirmed, `git checkout develop`, `git pull origin develop`, create a branch named `feature/<short-slug-of-the-request>` off that updated `develop`, switch to it, and start implementing the confirmed solution on that branch.
-- When the user's message starts with the prefix `:push`: if currently on a feature branch, ask the user (`ask_user`) whether to finish the feature now. If confirmed: merge the current branch into `develop` with `--no-ff`, push `origin develop`, then delete the feature branch locally, and ask the user whether to also delete it on the remote if it exists there. If currently on `develop` (no active feature branch), just run `git push origin develop` directly, without asking anything.
-- When the user's message starts with the prefix `:c` or `:close`: first commit all pending in-scope work (for any changed files that appear unrelated/out-of-scope for the feature described by the originating `:f`/`:feature` request, summarize them and ask the user for confirmation before including them in the commit). Then run the exact same finishing flow as `:push` (merge current branch into `develop` with `--no-ff`, push `origin develop`, delete the feature branch locally, ask whether to also delete the remote branch).
+- When the user's message starts with the prefix `:push`: if currently on a feature branch, ask the user (`ask_user`) whether to finish the feature now. If confirmed: push the feature branch to `origin`, open a Pull Request into `develop` via `gh pr create`, and report the PR URL to the user (do NOT push directly to `develop` — direct pushes are blocked by branch protection). If currently on `develop` (no active feature branch), push the feature branch is not applicable; instead push any local `develop` commits via a PR from a temporary branch, or simply report that direct commits on `develop` aren't allowed and a feature branch should be created first.
+- When the user's message starts with the prefix `:c` or `:close`: first commit all pending in-scope work (for any changed files that appear unrelated/out-of-scope for the feature described by the originating `:f`/`:feature` request, summarize them and ask the user for confirmation before including them in the commit). Then run the exact same finishing flow as `:push` (push the feature branch, open a PR into `develop` via `gh pr create`, report the PR URL). Do not merge or delete the feature branch locally/remotely until the user confirms the PR has been merged (e.g. via `gh pr merge` after review, or manually on GitHub).
 - When the user's message starts with the prefix `:h`, `:?`, or `:help`, print the same shortcut recap table described in the "Copilot Session-Start Shortcut Recap" section below, then wait for the next request.
 - When the user's message starts with the prefix `:rundev`: (1) check whether the dev server port (4000) is already in use; if so, ask the user (`ask_user`) whether to stop the existing process and restart it, or leave it running and abort; (2) otherwise, launch `npm run dev` as a detached background process, redirecting output to `logs/dev-server.log`; (3) report the exact log path, a one-line command to follow it (e.g. `Get-Content -Wait logs/dev-server.log`), and the shellId for stop/read control.
+
+## Git Flow e protezione dei branch (Mandatory)
+
+- Il branch principale/di default è **`develop`** (non più `main`; `main` è stato rinominato in `develop` e rimosso).
+- **Nessun push diretto è consentito su `develop`** (branch protection attiva su GitHub con `enforce_admins: true`): ogni modifica deve passare tramite un feature branch (`feature/<slug>`) e una Pull Request (`gh pr create` + merge dopo revisione/conferma).
+- Un tentativo di `git push origin develop` diretto verrà rifiutato dal remoto: se questo accade, creare/usare un feature branch e aprire una PR invece di ritentare il push diretto.
+- Se in futuro viene ricreato un branch `main`, applicare la stessa regola di protezione (nessun push diretto, solo PR).
 
 ## 🤖 Copilot Session-Start Shortcut Recap
 
@@ -19,9 +26,9 @@ Current shortcuts defined in this repo (keep this list in sync whenever a shortc
 |---|---|
 | `:interview` (alias `:i`) | Forza modalità piano: raccoglie i requisiti a domande (una alla volta) prima di agire; richiede autopilot off. |
 | `:f` / `:feature` | Analizza la richiesta → conferma problema → propone soluzione (con eventuale interview) → conferma → crea branch `feature/<slug>` da `develop` aggiornato e inizia l'implementazione. |
-| `:push` | Se su feature branch: chiede conferma, poi merge `--no-ff` su `develop`, push, elimina branch locale (chiede per il remoto). Se già su `develop`: push diretto senza chiedere. |
-| `:c` / `:close` | Committa il lavoro in-scope (chiede conferma su modifiche fuori-scope), poi esegue lo stesso flusso di `:push`. |
-| `:pull` | `git pull` su `develop`, `main` e sul branch corrente (se presente). |
+| `:push` | Se su feature branch: chiede conferma, poi push del branch e apertura PR verso `develop` (niente push diretto, bloccato da branch protection). |
+| `:c` / `:close` | Committa il lavoro in-scope (chiede conferma su modifiche fuori-scope), poi push del branch e apertura PR verso `develop` come `:push`. |
+| `:pull` | `git pull` su `develop` e sul branch corrente (se presente). |
 | `:rundev` | Verifica se la porta 4000 è occupata (chiede se riavviare); altrimenti lancia `npm run dev` in background/detached con log su `logs/dev-server.log`. |
 | `:h` / `:?` / `:help` | Stampa questa tabella riassuntiva degli shortcut. |
 
@@ -45,7 +52,6 @@ Quando l'utente scrive `:pull`, esegui immediatamente i seguenti comandi nell'or
 
 ```powershell
 git pull origin develop
-git pull origin main
 ```
 
 Se sono presenti branch locali attivi (feature branch), esegui anche:
