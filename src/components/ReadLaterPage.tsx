@@ -1,31 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { format } from "date-fns";
-import { it } from "date-fns/locale";
 import { Article, Interest } from "../types";
 import { 
   Bookmark, 
-  BookmarkCheck, 
-  ExternalLink, 
   CheckCircle, 
-  Sparkles, 
-  Trash2, 
   Search, 
-  Filter, 
   RefreshCw, 
-  Share2, 
   BookOpen, 
-  Clock, 
-  SlidersHorizontal,
-  Tag,
-  ShieldMinus,
-  X,
-  Info,
+  X, 
   RotateCcw,
   EyeOff
 } from "lucide-react";
 import ArticleCardItem from "./ArticleCardItem";
-import FormattedSummary from "./FormattedSummary";
 import ConfirmOverlay from "./ConfirmOverlay";
+import ArticleInfoModal from "./ArticleInfoModal";
+import ReadLaterSummaryModal from "./ReadLaterSummaryModal";
 
 function HiddenArticlePlaceholder({ article, onUndo }: { article: Article; onUndo: () => void | Promise<void>; key?: any }) {
   const [timeLeft, setTimeLeft] = useState(6);
@@ -53,7 +41,7 @@ function HiddenArticlePlaceholder({ article, onUndo }: { article: Article; onUnd
             {article.title}
           </p>
           <p className="text-xs text-slate-400">
-            Questa notizia non comparirà più nel tuo feed personalizzato.
+            Questa notizia non comparirÃ  piÃ¹ nel tuo feed personalizzato.
           </p>
         </div>
       </div>
@@ -273,7 +261,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
         setArticles(prev => prev.map(a => a.id === id ? { ...a, aiSummary: data.aiSummary, aiTags: data.aiTags, aiRelevance: data.aiRelevance } : a));
         setSelectedSummary(prev => prev ? { ...prev, aiSummary: data.aiSummary, aiTags: data.aiTags, aiRelevance: data.aiRelevance } : null);
       } else {
-        setSummaryError("Impossibile generare il riassunto. Riprova più tardi.");
+        setSummaryError("Impossibile generare il riassunto. Riprova piÃ¹ tardi.");
       }
     } catch (e) {
       console.error(e);
@@ -291,6 +279,27 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
     const id = pendingRegenerateId;
     setPendingRegenerateId(null);
     await autoGenerateSummary(id);
+  };
+
+  const handleExcludeSource = async (srcToExclude: string) => {
+    try {
+      await fetch('/api/interests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword: srcToExclude, type: 'negative', weight: 1.0 })
+      });
+
+      setArticles(prev => prev.filter(a => (a.source || "").toLowerCase().trim() !== srcToExclude.toLowerCase().trim()));
+      setFeedbackMessage(`Sorgente "${srcToExclude}" esclusa! Notizie rimosse.`);
+      setTimeout(() => setFeedbackMessage(null), 5000);
+
+      setInfoModalArticle(null);
+      setSelectedSummary(null);
+    } catch (e) {
+      console.error(e);
+      setFeedbackMessage(`Errore durante l'esclusione della sorgente "${srcToExclude}".`);
+      setTimeout(() => setFeedbackMessage(null), 5000);
+    }
   };
 
   const handleOpenSummary = (article: Article) => {
@@ -371,7 +380,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
               </span>
             </div>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              I tuoi articoli archiviati per una lettura approfondita quando hai più tempo.
+              I tuoi articoli archiviati per una lettura approfondita quando hai piÃ¹ tempo.
             </p>
           </div>
         </div>
@@ -500,7 +509,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
           </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
             {articles.length === 0 
-              ? "Clicca sull'icona del segnalibro 📌 su qualsiasi notizia nel feed per salvarla qui e leggerla comodamente in un secondo momento."
+              ? "Clicca sull'icona del segnalibro ðŸ“Œ su qualsiasi notizia nel feed per salvarla qui e leggerla comodamente in un secondo momento."
               : "Prova a modificare i termini di ricerca o a reimpostare i filtri per visualizzare gli articoli salvati."}
           </p>
           {articles.length === 0 && onNavigateHome && (
@@ -547,242 +556,31 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
 
       {/* AI Summary Modal */}
       {selectedSummary && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs" onClick={() => setSelectedSummary(null)}>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-gradient-to-r from-amber-50/70 via-indigo-50/40 to-slate-50 dark:from-amber-950/40 dark:via-indigo-950/20 dark:to-slate-900 shrink-0">
-              <div className="flex items-center gap-2.5 text-indigo-700 dark:text-indigo-300 font-bold">
-                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
-                  <Bookmark className="w-4 h-4 fill-white" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">AI Summary • Leggi Dopo</h2>
-                  {(selectedSummary.source || selectedSummary.pubDate) && (
-                    <p className="text-xs font-normal text-slate-500 dark:text-slate-400">
-                      {selectedSummary.source}
-                      {selectedSummary.source && selectedSummary.pubDate ? " • " : ""}
-                      {selectedSummary.pubDate ? format(new Date(selectedSummary.pubDate), "d MMMM yyyy, HH:mm", { locale: it }) : ''}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => handleToggleSave(selectedSummary)}
-                  className="p-1.5 text-amber-500 hover:text-amber-600 bg-amber-50 dark:bg-amber-950/60 dark:text-amber-400 rounded-full transition-colors cursor-pointer"
-                  title="Rimuovi da Leggi dopo"
-                >
-                  <BookmarkCheck className="w-5 h-5 fill-amber-500 dark:fill-amber-400" />
-                </button>
-                <button
-                  onClick={() => setInfoModalArticle(selectedSummary)}
-                  className="p-1.5 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
-                  title="Criteri di visualizzazione"
-                >
-                  <Info className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handleShareArticle(selectedSummary)}
-                  className="p-1.5 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
-                  title="Condividi"
-                >
-                  <Share2 className="w-5 h-5" />
-                </button>
-                <button onClick={() => setSelectedSummary(null)} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            <div className="p-6 overflow-y-auto space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg sm:text-xl leading-snug">{selectedSummary.title}</h3>
-                <a
-                  href={selectedSummary.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => handleToggleRead(selectedSummary)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-xs transition-colors shrink-0 self-start sm:self-center shadow-xs cursor-pointer"
-                >
-                  <span>Apri link remoto</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
-
-              {isRegenerating ? (
-                <div className="py-12 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
-                   <RefreshCw className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
-                   <p className="font-medium text-sm">Generazione quadro completo con l'AI...</p>
-                </div>
-              ) : summaryError ? (
-                <div className="py-6 px-4 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 rounded-2xl border border-rose-100 dark:border-rose-800/40 mb-4 text-center">
-                  <p className="font-medium text-sm">{summaryError}</p>
-                </div>
-              ) : (
-                <>
-                  {selectedSummary.aiTags && selectedSummary.aiTags.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-slate-100 dark:border-slate-800">
-                      {selectedSummary.aiTags.map((tag, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60"
-                        >
-                          <span className="opacity-60 text-[10px]">#</span>
-                          <span>{tag}</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <div className="max-w-none">
-                    <FormattedSummary summaryText={selectedSummary.aiSummary} />
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-2">
-                {selectedSummary.aiRelevance > 0 && (
-                  <span className="text-xs font-bold bg-indigo-100 dark:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-700">
-                    Rilevanza: {selectedSummary.aiRelevance}/100
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2.5">
-                <button
-                  onClick={() => handleToggleSave(selectedSummary)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 font-medium rounded-xl text-sm transition-colors cursor-pointer"
-                  title="Rimuovi dai salvati"
-                >
-                  <BookmarkCheck className="w-4 h-4 fill-amber-500" />
-                  <span>Salvato</span>
-                </button>
-                <button
-                  onClick={() => handleShareArticle(selectedSummary)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium rounded-xl text-sm transition-colors cursor-pointer"
-                  title="Condividi notizia e riassunto"
-                >
-                  <Share2 className="w-4 h-4" />
-                  <span>Condividi</span>
-                </button>
-                <button 
-                  onClick={() => generateSummary(selectedSummary.id)}
-                  disabled={isRegenerating}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium rounded-xl text-sm transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isRegenerating ? 'animate-spin' : ''}`} />
-                  Rigenera
-                </button>
-                <button 
-                  onClick={() => setSelectedSummary(null)}
-                  className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-medium rounded-xl text-sm transition-colors cursor-pointer"
-                >
-                  Chiudi
-                </button>
-                <a
-                  href={selectedSummary.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => {
-                    handleToggleRead(selectedSummary);
-                    setSelectedSummary(null);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-sm transition-colors shadow-xs"
-                >
-                  Fonte originale <ExternalLink className="w-4 h-4" />
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ReadLaterSummaryModal
+          article={selectedSummary}
+          isRegenerating={isRegenerating}
+          summaryError={summaryError}
+          onClose={() => setSelectedSummary(null)}
+          onToggleSave={handleToggleSave}
+          onOpenInfo={setInfoModalArticle}
+          onShare={handleShareArticle}
+          onMarkAsRead={handleToggleRead}
+          onRegenerate={generateSummary}
+        />
       )}
       {/* Criteri di Visualizzazione Modal */}
       {infoModalArticle && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-base sm:text-lg">
-                <Info className="w-5 h-5" />
-                <span>Criteri di Visualizzazione</span>
-              </div>
-              <button 
-                onClick={() => setInfoModalArticle(null)}
-                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <div>
-                <span className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Titolo Notizia</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100 line-clamp-2 mt-0.5">{infoModalArticle.title}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 block">Sorgente</span>
-                  <p className="font-bold text-slate-900 dark:text-slate-100 truncate">{infoModalArticle.source || "RSS Feed"}</p>
-                </div>
-                <div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 block">Rilevanza AI</span>
-                  <p className="font-bold text-indigo-600 dark:text-indigo-400">{infoModalArticle.aiRelevance}/100</p>
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                Questa notizia compare nel tuo feed perché è pubblicata da <strong className="text-slate-900 dark:text-slate-100">{infoModalArticle.source || 'RSS Feed'}</strong> ed è associata ai tuoi temi di interesse.
-              </p>
-
-              {infoModalArticle.aiTags && infoModalArticle.aiTags.length > 0 && (
-                <div>
-                  <span className="text-xs font-semibold text-slate-400 block mb-1.5">Tag Tematici:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {infoModalArticle.aiTags.map((tag, idx) => (
-                      <span key={idx} className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium border border-indigo-100 dark:border-indigo-900">
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
-              {infoModalArticle.source && (
-                <button
-                  onClick={async () => {
-                    const srcToExclude = infoModalArticle.source;
-                    try {
-                      await fetch('/api/interests', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ keyword: srcToExclude, type: 'negative', weight: 1.0 })
-                      });
-                      
-                      setArticles(prev => prev.filter(a => (a.source || "").toLowerCase().trim() !== srcToExclude.toLowerCase().trim()));
-                      setFeedbackMessage(`Sorgente "${srcToExclude}" esclusa! Notizie rimosse.`);
-                      setTimeout(() => setFeedbackMessage(null), 5000);
-                      
-                      setInfoModalArticle(null);
-                      setSelectedSummary(null);
-                    } catch (e) {
-                      console.error(e);
-                      setFeedbackMessage(`Errore durante l'esclusione della sorgente "${srcToExclude}".`);
-                      setTimeout(() => setFeedbackMessage(null), 5000);
-                    }
-                  }}
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 rounded-2xl text-xs font-bold transition-colors cursor-pointer border border-rose-200 dark:border-rose-800"
-                >
-                  <ShieldMinus className="w-4 h-4" /> Escludi sorgente "{infoModalArticle.source}"
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        <ArticleInfoModal
+          article={infoModalArticle}
+          onClose={() => setInfoModalArticle(null)}
+          onExcludeSource={handleExcludeSource}
+        />
       )}
 
       <ConfirmOverlay
         isOpen={pendingRegenerateId !== null}
         title="Rigenerare il riassunto?"
-        message="Il riassunto AI precedente di questo articolo verrà sovrascritto con uno nuovo."
+        message="Il riassunto AI precedente di questo articolo verrÃ  sovrascritto con uno nuovo."
         confirmLabel="Rigenera"
         confirmingLabel="Generazione..."
         danger={false}
