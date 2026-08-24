@@ -1,71 +1,19 @@
 ﻿import React, { useState, useEffect, useRef } from "react";
-import { format } from "date-fns";
-import { it } from "date-fns/locale";
 import { Article, Interest } from "../types";
 import { 
-  ExternalLink, 
   CheckCircle, 
-  Sparkles, 
   Filter, 
   RefreshCw, 
-  EyeOff, 
   X, 
-  Tag, 
-  ShieldMinus, 
-  Check, 
-  Share2,
-  SlidersHorizontal,
-  ChevronRight,
-  Bookmark,
-  BookmarkCheck,
-  Info,
-  Rss,
-  RotateCcw,
-  Compass,
-  Loader2,
-  Plus,
-  Trash2
+  Tag
 } from "lucide-react";
-import ArticleCardItem from "./ArticleCardItem";
-import FormattedSummary from "./FormattedSummary";
 import ConfirmOverlay from "./ConfirmOverlay";
-import { getSourceAccent, getSourceInitial, registerSourceNames } from "../lib/sourceStyle";
-
-function HiddenArticleToast({ article, onUndo }: { article: Article; onUndo: () => void | Promise<void> }) {
-  const [timeLeft, setTimeLeft] = useState(3);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="w-72 max-w-[calc(100vw-2rem)] p-4 bg-slate-900 text-white rounded-2xl border-2 border-indigo-500/30 overflow-hidden shadow-2xl animate-in slide-in-from-left-4 fade-in duration-300">
-      <div className="flex items-center gap-2.5 text-indigo-400 font-bold uppercase tracking-wider text-[11px] mb-1.5">
-        <EyeOff className="w-4 h-4" />
-        <span>Notizia Nascosta</span>
-      </div>
-      <p className="text-xs font-semibold leading-snug line-clamp-2 text-slate-100 mb-3">
-        {article.title}
-      </p>
-      <button
-        onClick={onUndo}
-        className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
-      >
-        <RotateCcw className="w-3.5 h-3.5" />
-        <span>Annulla ({timeLeft}s)</span>
-      </button>
-      <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden mt-2">
-        <div
-          className="h-full bg-indigo-500 transition-all duration-1000 ease-linear"
-          style={{ width: `${(timeLeft / 3) * 100}%` }}
-        />
-      </div>
-    </div>
-  );
-}
+import TagActionModal from "./TagActionModal";
+import ArticleInfoModal from "./ArticleInfoModal";
+import ArticleSummaryModal from "./ArticleSummaryModal";
+import SourceSelectorBar from "./SourceSelectorBar";
+import ArticlesGrid from "./ArticlesGrid";
+import { registerSourceNames } from "../lib/sourceStyle";
 
 const FILTERS = ["All", "Today"];
 
@@ -286,8 +234,9 @@ export default function ArticlesList() {
   }, []);
 
   // Check if a given tag is in the negative / excluded interests
-  const isTagExcluded = (tagName: string) => false;
-  const isTagPositiveInterest = (tagName: string) => false;
+  // TODO: currently a stub (interest-exclusion UI marks tags but doesn't cross-check
+  // against the negative interests list yet) — always returns false.
+  const isTagExcluded = (_tagName: string) => false;
 
   const searchFeedsForTag = async (tag: string) => {
     if (tagSearchLoading) return;
@@ -451,16 +400,6 @@ export default function ArticlesList() {
     }
   };
 
-  const top10Sources = React.useMemo(() => {
-    const list = configuredFeeds.map(f => f.name);
-
-    if (list.length === 0) return [];
-
-    // For the main bar, we prefer showing all configured feeds alphabetically or in original order
-    // to "align" with the user settings as requested.
-    return [...list].sort((a, b) => a.localeCompare(b));
-  }, [configuredFeeds]);
-
   const toggleSaveArticle = async (article: Article) => {
     const newSaveStatus = !article.isSaved;
     
@@ -547,7 +486,7 @@ export default function ArticlesList() {
       await navigator.clipboard.writeText(copyText);
       setFeedbackMessage("Link dell'articolo copiato negli appunti!");
       setTimeout(() => setFeedbackMessage(null), 4000);
-    } catch (err) {
+    } catch {
       setFeedbackMessage("Impossibile copiare il link.");
       setTimeout(() => setFeedbackMessage(null), 4000);
     }
@@ -595,6 +534,29 @@ export default function ArticlesList() {
     setLoading(true);
     await fetch('/api/fetch', { method: 'POST' });
     fetchArticles();
+  };
+
+  const handleExcludeSource = async (srcToExclude: string) => {
+    try {
+      await fetch('/api/interests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword: srcToExclude, type: 'negative', weight: 1.0 })
+      });
+
+      // Filter local feed instantly
+      setArticles(prev => prev.filter(a => (a.source || "").toLowerCase().trim() !== srcToExclude.toLowerCase().trim()));
+      setFeedbackMessage(`Sorgente "${srcToExclude}" esclusa! Notizie rimosse dal feed.`);
+      setTimeout(() => setFeedbackMessage(null), 5000);
+
+      setInfoModalArticle(null);
+      setSelectedSummary(null);
+      fetchArticles();
+    } catch (e) {
+      console.error(e);
+      setFeedbackMessage(`Errore durante l'esclusione della sorgente "${srcToExclude}".`);
+      setTimeout(() => setFeedbackMessage(null), 5000);
+    }
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -713,55 +675,11 @@ export default function ArticlesList() {
       </div>
 
       {/* Selezione Sorgente: lista piatta completa di tutte le sorgenti disponibili */}
-      <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-slate-900 p-3.5 px-4 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-800 transition-colors">
-        <button
-          onClick={() => handleSelectSource("")}
-          className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 border shrink-0 ${
-            selectedSource === ""
-              ? "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-400/40"
-              : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80"
-          }`}
-          title="Mostra tutte le sorgenti"
-        >
-          <Rss className="w-3.5 h-3.5 shrink-0" />
-          <span>Tutte le sorgenti</span>
-        </button>
-        {configuredFeeds.map((feed) => {
-          const isSelected = selectedSource === feed.name;
-          const accent = getSourceAccent(feed.name);
-          return (
-            <button
-              key={feed.name}
-              onClick={() => handleSelectSource(isSelected ? "" : feed.name)}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-start gap-1.5 border shrink-0 ${
-                isSelected
-                  ? "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-400/40"
-                  : `${accent.bg} ${accent.text} border-transparent hover:opacity-80`
-              }`}
-              title={feed.addedVia ? `Filtra per ${feed.name} — aggiunta tramite: ${feed.addedVia}` : `Filtra per ${feed.name}`}
-            >
-              <span
-                className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${isSelected ? "bg-white/20" : "bg-white/40 dark:bg-black/20"}`}
-                aria-hidden="true"
-              >
-                <span className={`text-[9px] font-black ${isSelected ? "text-white" : accent.text}`}>{getSourceInitial(feed.name)}</span>
-              </span>
-              <span className="flex flex-col items-start gap-0">
-                {feed.addedVia && (
-                  <span
-                    className={`text-[9px] font-normal opacity-70 truncate max-w-[160px] leading-none ${
-                      isSelected ? "text-indigo-100" : accent.text
-                    }`}
-                  >
-                    {feed.addedVia}
-                  </span>
-                )}
-                <span className="truncate max-w-[160px]">{feed.name}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <SourceSelectorBar
+        configuredFeeds={configuredFeeds}
+        selectedSource={selectedSource}
+        onSelectSource={handleSelectSource}
+      />
 
       {/* Active Tag Filter Indicator */}
       {selectedTag && (
@@ -780,568 +698,91 @@ export default function ArticlesList() {
       )}
 
       {/* List */}
-      {loading ? (
-        <div className="text-center text-slate-500 dark:text-slate-400 py-12">Caricamento notizie...</div>
-      ) : articles.length === 0 ? (
-        <div className="text-center text-slate-500 dark:text-slate-400 py-12 px-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
-          <p>Nessuna notizia trovata per i criteri selezionati.</p>
-
-          {selectedSource && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-center gap-2 flex-wrap">
-                <button
-                  onClick={handleCreateTransformerForSelectedSource}
-                  disabled={isCreatingTransformer}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {isCreatingTransformer ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                  Prova a creare trasformatore per "{selectedSource}"
-                </button>
-                <button
-                  onClick={() => setIsRemoveSourceConfirmOpen(true)}
-                  disabled={isRemovingSource}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {isRemovingSource ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                  Rimuovi sorgente
-                </button>
-              </div>
-              {transformerFeedback && (
-                <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400 max-w-md mx-auto">{transformerFeedback}</p>
-              )}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Quick gesture hint for mobile/touch users */}
-          <div className="flex flex-wrap items-center justify-between text-xs text-slate-400 dark:text-slate-500 px-1 py-0.5 select-none gap-2">
-            <span className="flex items-center gap-1.5">
-              <span>👉</span> <span><strong>Swipe a destra:</strong> apri AI summary</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span>👈</span> <span><strong>Swipe a sinistra:</strong> nascondi notizia</span>
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {articles.slice(0, visibleCount).map((article) => (
-              <ArticleCardItem
-                key={article.id}
-                article={article}
-                isTagExcluded={isTagExcluded}
-                selectedTag={selectedTag}
-                onTagClick={(tag) => setTagModal({ tag })}
-                onOpenSummary={handleOpenSummary}
-                onToggleRead={toggleReadArticle}
-                onToggleSave={toggleSaveArticle}
-                onHide={hideArticle}
-                onShare={handleShareArticle}
-                onOpenInfo={(art) => setInfoModalArticle(art)}
-              />
-            ))}
-          </div>
-
-          {/* Undo-hide toasts, stacked bottom-left */}
-          {recentlyHiddenQueue.length > 0 && (
-            <div className="fixed bottom-4 left-4 z-[80] flex flex-col-reverse gap-2 pointer-events-none">
-              {recentlyHiddenQueue.slice(-3).map((article) => (
-                <div key={article.id} className="pointer-events-auto">
-                  <HiddenArticleToast
-                    article={article}
-                    onUndo={() => undoHideArticleInline(article.id)}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {articles.length > visibleCount && (
-            <div 
-              ref={sentinelRef} 
-              className="py-16 flex flex-col items-center justify-center gap-3 text-slate-500 dark:text-slate-400 select-none animate-in fade-in duration-500"
-            >
-              <div className="relative flex items-center justify-center">
-                <Loader2 className={`w-7 h-7 animate-spin text-indigo-600 dark:text-indigo-400 ${isLoadMoreLoading ? 'opacity-100' : 'opacity-40'}`} />
-                {!isLoadMoreLoading && <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-indigo-500">...</div>}
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
-                  {isLoadMoreLoading ? "Caricamento in corso" : "Scorri per altre notizie"}
-                </span>
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                  <span>Mostrate {Math.min(visibleCount, articles.length)} di {articles.length}</span>
-                </div>
-              </div>
-              
-              {!isLoadMoreLoading && (
-                <button 
-                  onClick={() => setVisibleCount(prev => prev + 24)}
-                  className="mt-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
-                >
-                  Mostra di più ora
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      <ArticlesGrid
+        loading={loading}
+        articles={articles}
+        visibleCount={visibleCount}
+        selectedSource={selectedSource}
+        selectedTag={selectedTag}
+        isCreatingTransformer={isCreatingTransformer}
+        isRemovingSource={isRemovingSource}
+        transformerFeedback={transformerFeedback}
+        isLoadMoreLoading={isLoadMoreLoading}
+        recentlyHiddenQueue={recentlyHiddenQueue}
+        sentinelRef={sentinelRef}
+        isTagExcluded={isTagExcluded}
+        onTagClick={(tag) => setTagModal({ tag })}
+        onOpenSummary={handleOpenSummary}
+        onToggleRead={toggleReadArticle}
+        onToggleSave={toggleSaveArticle}
+        onHide={hideArticle}
+        onShare={handleShareArticle}
+        onOpenInfo={(art) => setInfoModalArticle(art)}
+        onUndoHide={undoHideArticleInline}
+        onCreateTransformer={handleCreateTransformerForSelectedSource}
+        onRequestRemoveSource={() => setIsRemoveSourceConfirmOpen(true)}
+        onShowMore={() => setVisibleCount((prev) => prev + 24)}
+      />
 
       {/* Tag Action Modal (AI Feed search & Filter) */}
       {tagModal && (
-        <div 
-          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs" 
-          onClick={() => setTagModal(null)}
-        >
-          <div 
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 transition-colors" 
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-gradient-to-r from-indigo-50/70 to-slate-50 dark:from-indigo-950/40 dark:to-slate-900">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-800">
-                  <Compass className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg">
-                    Trova Fonti Correlate con AI
-                  </h3>
-                  <span className="inline-block font-bold text-indigo-600 dark:text-indigo-400 text-sm">
-                    #{tagModal.tag}
-                  </span>
-                </div>
-              </div>
-              <button 
-                onClick={() => setTagModal(null)} 
-                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5">
-              {/* AI Search Area */}
-              {tagSearchResults.length === 0 && !tagSearchLoading && (
-                <div className="space-y-4">
-                  <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
-                    Vuoi utilizzare l'Intelligenza Artificiale per scoprire nuovi feed RSS e sorgenti di notizie aggiornate dedicate a <strong className="text-indigo-600 dark:text-indigo-400">#{tagModal.tag}</strong>?
-                  </div>
-                  <button
-                    onClick={() => searchFeedsForTag(tagModal.tag)}
-                    className="w-full flex items-center justify-center gap-2.5 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-semibold rounded-2xl text-sm transition-all shadow-xs cursor-pointer"
-                  >
-                    <Sparkles className="w-4 h-4 text-amber-300" />
-                    Cerca Fonti con AI
-                  </button>
-                </div>
-              )}
-
-              {/* Loading State */}
-              {tagSearchLoading && (
-                <div className="py-8 flex flex-col items-center justify-center gap-3">
-                  <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    L'AI sta cercando i migliori feed per #{tagModal.tag}...
-                  </p>
-                </div>
-              )}
-
-              {/* Feed Search Feedback */}
-              {tagSearchFeedback && (
-                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-2">
-                  <Check className="w-4 h-4" />
-                  <span>{tagSearchFeedback}</span>
-                </div>
-              )}
-
-              {/* Search Results */}
-              {tagSearchResults.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    Sorgenti consigliate trovate:
-                  </h4>
-                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                    {tagSearchResults.map((feed, idx) => {
-                      const isAdded = !!allAddedFeeds[feed.url];
-                      return (
-                        <div 
-                          key={idx} 
-                          className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 shadow-3xs"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <span className="font-bold text-xs text-slate-900 dark:text-slate-100 block truncate">
-                              {feed.name}
-                            </span>
-                            <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5 truncate">
-                              {feed.reason || feed.category || "Feed correlato"}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => addTagFeed(feed)}
-                            disabled={isAdded}
-                            className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-3xs cursor-pointer flex items-center gap-1 ${
-                              isAdded 
-                                ? "bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-300"
-                                : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                            }`}
-                          >
-                            {isAdded ? (
-                              <>
-                                <Check className="w-3.5 h-3.5" />
-                                Aggiunto
-                              </>
-                            ) : (
-                              <>
-                                <Plus className="w-3.5 h-3.5" />
-                                Aggiungi
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  onClick={() => {
-                    setSelectedTag(selectedTag === tagModal.tag ? null : tagModal.tag);
-                    setTagModal(null);
-                  }}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40 font-semibold rounded-2xl text-sm transition-all cursor-pointer"
-                >
-                  <Tag className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  {selectedTag === tagModal.tag ? "Disattiva filtro tag" : `Filtra notizie per #${tagModal.tag}`}
-                </button>
-
-                <button
-                  onClick={() => setTagModal(null)}
-                  className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-2xl text-sm transition-all cursor-pointer"
-                >
-                  Annulla
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <TagActionModal
+          tag={tagModal.tag}
+          selectedTag={selectedTag}
+          searchLoading={tagSearchLoading}
+          searchResults={tagSearchResults}
+          searchFeedback={tagSearchFeedback}
+          allAddedFeeds={allAddedFeeds}
+          onSearch={searchFeedsForTag}
+          onAddFeed={addTagFeed}
+          onToggleFilter={(tag) => {
+            setSelectedTag(selectedTag === tag ? null : tag);
+            setTagModal(null);
+          }}
+          onClose={() => setTagModal(null)}
+        />
       )}
 
       {/* Summary Modal */}
       {selectedSummary && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs" onClick={() => setSelectedSummary(null)}>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 transition-colors" onClick={e => e.stopPropagation()}>
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-gradient-to-r from-indigo-50/70 via-indigo-50/40 to-slate-50 dark:from-indigo-950/40 dark:via-indigo-950/20 dark:to-slate-900 shrink-0">
-              <div className="flex items-center gap-2.5 text-indigo-700 dark:text-indigo-300 font-bold">
-                <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">AI Summary Completo</h2>
-                  {(selectedSummary.source || selectedSummary.pubDate) && (
-                    <p className="text-xs font-normal text-slate-500 dark:text-slate-400">
-                      {selectedSummary.source}
-                      {selectedSummary.source && selectedSummary.pubDate ? " • " : ""}
-                      {selectedSummary.pubDate ? format(new Date(selectedSummary.pubDate), "d MMMM yyyy, HH:mm", { locale: it }) : ''}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => toggleSaveArticle(selectedSummary)}
-                  className={`p-1.5 rounded-full transition-colors cursor-pointer ${
-                    selectedSummary.isSaved
-                      ? "text-amber-500 hover:text-amber-600 bg-amber-50 dark:bg-amber-950/60 dark:text-amber-400"
-                      : "text-slate-500 hover:text-amber-500 dark:text-slate-400 dark:hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                  }`}
-                  title={selectedSummary.isSaved ? "Rimuovi da Leggi dopo" : "Salva in Leggi dopo"}
-                >
-                  {selectedSummary.isSaved ? (
-                    <BookmarkCheck className="w-5 h-5 fill-amber-500 dark:fill-amber-400" />
-                  ) : (
-                    <Bookmark className="w-5 h-5" />
-                  )}
-                </button>
-                <button
-                  onClick={() => setInfoModalArticle(selectedSummary)}
-                  className="p-1.5 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
-                  title="Criteri di visualizzazione"
-                >
-                  <Info className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handleShareArticle(selectedSummary)}
-                  className="p-1.5 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
-                  title="Condividi riassunto e notizia"
-                >
-                  <Share2 className="w-5 h-5" />
-                </button>
-                <button onClick={() => setSelectedSummary(null)} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            <div className="p-6 overflow-y-auto space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg sm:text-xl leading-snug">{selectedSummary.title}</h3>
-                <a
-                  href={selectedSummary.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => markAsRead(selectedSummary.id)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-xs transition-colors shrink-0 self-start sm:self-center shadow-xs cursor-pointer"
-                >
-                  <span>Apri link remoto</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
-
-              {isRegenerating ? (
-                <div className="py-12 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
-                   <RefreshCw className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
-                   <p className="font-medium text-sm">Generazione quadro completo della notizia con l'AI...</p>
-                </div>
-              ) : summaryError ? (
-                <div className="py-6 px-4 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 rounded-2xl border border-rose-100 dark:border-rose-800/40 mb-4 text-center">
-                  <p className="font-medium text-sm">{summaryError}</p>
-                </div>
-              ) : (
-                <>
-                  {selectedSummary.aiTags && selectedSummary.aiTags.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-slate-100 dark:border-slate-800">
-                      {selectedSummary.aiTags.map((tag, idx) => {
-                        const isExcluded = isTagExcluded(tag);
-                        return (
-                          <button
-                            key={idx}
-                            onClick={() => {
-                              setSelectedSummary(null);
-                              setTagModal({ tag });
-                            }}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
-                              isExcluded
-                                ? "bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800 line-through"
-                                : "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/60 hover:bg-indigo-100"
-                            }`}
-                            title="Clicca per gestire o escludere questo tag"
-                          >
-                            {isExcluded ? (
-                              <ShieldMinus className="w-3 h-3 text-rose-500" />
-                            ) : (
-                              <span className="opacity-60 text-[10px]">#</span>
-                            )}
-                            <span>{tag}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <div className="max-w-none">
-                    <FormattedSummary summaryText={selectedSummary.aiSummary} />
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-2">
-                {selectedSummary.aiRelevance > 0 && (
-                  <span className="text-xs font-bold bg-indigo-100 dark:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-700">
-                    Rilevanza: {selectedSummary.aiRelevance}/100
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2.5">
-                <button
-                  onClick={() => toggleSaveArticle(selectedSummary)}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 border font-medium rounded-xl text-sm transition-colors cursor-pointer ${
-                    selectedSummary.isSaved
-                      ? "bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100"
-                      : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-                  }`}
-                  title={selectedSummary.isSaved ? "Rimuovi dai salvati" : "Salva in Leggi dopo"}
-                >
-                  {selectedSummary.isSaved ? (
-                    <>
-                      <BookmarkCheck className="w-4 h-4 text-amber-600 dark:text-amber-400 fill-amber-500" />
-                      <span>Salvato</span>
-                    </>
-                  ) : (
-                    <>
-                      <Bookmark className="w-4 h-4" />
-                      <span>Leggi dopo</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => handleShareArticle(selectedSummary)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium rounded-xl text-sm transition-colors cursor-pointer"
-                  title="Condividi notizia e riassunto"
-                >
-                  <Share2 className="w-4 h-4" />
-                  <span>Condividi</span>
-                </button>
-                <button 
-                  onClick={() => generateSummary(selectedSummary.id)}
-                  disabled={isRegenerating}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium rounded-xl text-sm transition-colors disabled:opacity-50 cursor-pointer"
-                  title="Rigenera con il nuovo modello approfondito"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isRegenerating ? 'animate-spin' : ''}`} />
-                  Rigenera
-                </button>
-                <button 
-                  onClick={() => setSelectedSummary(null)}
-                  className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-medium rounded-xl text-sm transition-colors cursor-pointer"
-                >
-                  Chiudi
-                </button>
-                <a
-                  href={selectedSummary.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => {
-                    markAsRead(selectedSummary.id);
-                    setSelectedSummary(null);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-sm transition-colors shadow-xs"
-                >
-                  Fonte originale <ExternalLink className="w-4 h-4" />
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ArticleSummaryModal
+          article={selectedSummary}
+          isRegenerating={isRegenerating}
+          summaryError={summaryError}
+          isTagExcluded={isTagExcluded}
+          onClose={() => setSelectedSummary(null)}
+          onToggleSave={toggleSaveArticle}
+          onOpenInfo={(article) => setInfoModalArticle(article)}
+          onShare={handleShareArticle}
+          onMarkAsRead={markAsRead}
+          onRegenerate={generateSummary}
+          onTagClick={(tag) => {
+            setSelectedSummary(null);
+            setTagModal({ tag });
+          }}
+        />
       )}
       {/* Criteri di Visualizzazione Modal */}
       {infoModalArticle && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-base sm:text-lg">
-                <Info className="w-5 h-5" />
-                <span>Criteri di Visualizzazione</span>
-              </div>
-              <button 
-                onClick={() => setInfoModalArticle(null)}
-                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <div>
-                <span className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Titolo Notizia</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100 line-clamp-2 mt-0.5">{infoModalArticle.title}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 block">Sorgente</span>
-                  <p className="font-bold text-slate-900 dark:text-slate-100 truncate">{infoModalArticle.source || "RSS Feed"}</p>
-                </div>
-                <div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 block">Rilevanza AI</span>
-                  <p className="font-bold text-indigo-600 dark:text-indigo-400">{infoModalArticle.aiRelevance}/100</p>
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                Questa notizia compare nel tuo feed perché è pubblicata da <strong className="text-slate-900 dark:text-slate-100">{infoModalArticle.source || 'RSS Feed'}</strong> ed è associata ai tuoi temi di interesse.
-              </p>
-
-              {infoModalArticle.aiTags && infoModalArticle.aiTags.length > 0 && (
-                <div>
-                  <span className="text-xs font-semibold text-slate-400 block mb-1.5">Tag Tematici:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {infoModalArticle.aiTags.map((tag, idx) => (
-                      <span key={idx} className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium border border-indigo-100 dark:border-indigo-900">
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
-              {infoModalArticle.source && (
-                <button
-                  onClick={async () => {
-                    const srcToExclude = infoModalArticle.source;
-                    try {
-                      await fetch('/api/interests', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ keyword: srcToExclude, type: 'negative', weight: 1.0 })
-                      });
-                      
-                      // Filter local feed instantly
-                      setArticles(prev => prev.filter(a => (a.source || "").toLowerCase().trim() !== srcToExclude.toLowerCase().trim()));
-                      setFeedbackMessage(`Sorgente "${srcToExclude}" esclusa! Notizie rimosse dal feed.`);
-                      setTimeout(() => setFeedbackMessage(null), 5000);
-                      
-                      setInfoModalArticle(null);
-                      setSelectedSummary(null);
-                      fetchArticles();
-                    } catch (e) {
-                      console.error(e);
-                      setFeedbackMessage(`Errore durante l'esclusione della sorgente "${srcToExclude}".`);
-                      setTimeout(() => setFeedbackMessage(null), 5000);
-                    }
-                  }}
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 rounded-2xl text-xs font-bold transition-colors cursor-pointer border border-rose-200 dark:border-rose-800"
-                >
-                  <ShieldMinus className="w-4 h-4" /> Escludi sorgente "{infoModalArticle.source}"
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        <ArticleInfoModal
+          article={infoModalArticle}
+          onClose={() => setInfoModalArticle(null)}
+          onExcludeSource={handleExcludeSource}
+        />
       )}
 
       {/* Remove Source Confirmation Overlay */}
-      {isRemoveSourceConfirmOpen && (
-        <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[90] flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={() => setIsRemoveSourceConfirmOpen(false)}
-        >
-          <div
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/70 border border-rose-100 dark:border-rose-900 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Rimuovere la sorgente?
-              </h3>
-            </div>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-5">
-              Vuoi rimuovere definitivamente la sorgente "{selectedSource}"? Questa azione non può essere annullata.
-            </p>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setIsRemoveSourceConfirmOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={handleRemoveSelectedSource}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Rimuovi
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmOverlay
+        isOpen={isRemoveSourceConfirmOpen}
+        title="Rimuovere la sorgente?"
+        message={`Vuoi rimuovere definitivamente la sorgente "${selectedSource}"? Questa azione non può essere annullata.`}
+        confirmLabel="Rimuovi"
+        confirmingLabel="Rimozione..."
+        isConfirming={isRemovingSource}
+        danger
+        onConfirm={handleRemoveSelectedSource}
+        onCancel={() => setIsRemoveSourceConfirmOpen(false)}
+      />
 
       <ConfirmOverlay
         isOpen={pendingRegenerateId !== null}
