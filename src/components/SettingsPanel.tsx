@@ -1,14 +1,35 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Interest, Feed, SuggestedFeed } from "../types";
+import { Feed } from "../types";
 import { registerSourceNames } from "../lib/sourceStyle";
+
+type WebAudioWindow = Window & typeof globalThis & {
+  webkitAudioContext?: typeof AudioContext;
+};
+
+type SuggestedFeed = {
+  url: string;
+  name: string;
+  reason?: string;
+  category?: string;
+};
+
+type ImportFeedCandidate = {
+  url?: string;
+  name?: string;
+  addedVia?: string;
+};
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 import ConfirmOverlay from "./ConfirmOverlay";
 import AiFeedGenerationModal, { AiOverlayData } from "./AiFeedGenerationModal";
 import AiProfileInterviewModal from "./AiProfileInterviewModal";
 import FeedListItem from "./FeedListItem";
 import FeedSearchByKeyword from "./FeedSearchByKeyword";
 import { 
-  Trash2, Rss, Hash, Sparkles, X, CheckCircle2, Globe, 
-  Loader2, UserCheck, Bot, Info, RefreshCw, Bell, BellRing, Sliders, Check, AlertTriangle, Download, Upload
+  Trash2, Rss, Sparkles, X, CheckCircle2,
+  Loader2, Bell, BellRing, Sliders, AlertTriangle, Download, Upload
 } from "lucide-react";
 
 export interface WeeklyTopic {
@@ -25,51 +46,9 @@ export interface DashboardStats {
 }
 
 export default function SettingsPanel() {
-  const [interests, setInterests] = useState<Interest[]>([]);
   const [feeds, setFeeds] = useState<Feed[]>([]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [feedStats, setFeedStats] = useState<Record<string, number>>({});
   
-  const [newKeyword, setNewKeyword] = useState("");
-  const [newType, setNewType] = useState<'positive' | 'negative'>("positive");
-  const [newFeedUrl, setNewFeedUrl] = useState("");
-  const [newFeedName, setNewFeedName] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  
-  const [isTestingFeed, setIsTestingFeed] = useState(false);
-  const [testResult, setTestResult] = useState<{
-    isValidRss: boolean;
-    isScrapeableHtml: boolean;
-    detectedName?: string;
-    itemCount?: number;
-    error?: string;
-  } | null>(null);
-
-  const testFeed = async () => {
-    if (!newFeedUrl.trim()) return;
-    setIsTestingFeed(true);
-    setTestResult(null);
-    try {
-      const res = await fetch('/api/feeds/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: newFeedUrl.trim() })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTestResult(data);
-        if (data.detectedName && !newFeedName) {
-          setNewFeedName(data.detectedName);
-        }
-      } else {
-        setTestResult({ isValidRss: false, isScrapeableHtml: false, error: "Errore di connessione durante il test." });
-      }
-    } catch (e) {
-      setTestResult({ isValidRss: false, isScrapeableHtml: false, error: "Errore imprevisto durante il test." });
-    } finally {
-      setIsTestingFeed(false);
-    }
-  };
 
   // Overlay modal state
   const [aiOverlayData, setAiOverlayData] = useState<AiOverlayData>({
@@ -131,7 +110,7 @@ export default function SettingsPanel() {
           ? { loading: false, isValidRss: data.isValidRss, isScrapeableHtml: data.isScrapeableHtml, transformerCreated: data.transformerCreated, itemCount: data.itemCount, error: data.error }
           : { loading: false, error: "Errore di connessione durante il test." }
       }));
-    } catch (e) {
+    } catch {
       setSuggestedFeedTestResults(prev => ({ ...prev, [url]: { loading: false, error: "Errore imprevisto durante il test." } }));
     }
   };
@@ -163,7 +142,7 @@ export default function SettingsPanel() {
 
   const playAddSound = () => {
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = window.AudioContext || (window as WebAudioWindow).webkitAudioContext;
       const ctx = new AudioCtx();
       const oscillator = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -176,7 +155,7 @@ export default function SettingsPanel() {
       gain.connect(ctx.destination);
       oscillator.start();
       oscillator.stop(ctx.currentTime + 0.25);
-    } catch (e) {
+    } catch {
       // Web Audio API not available/blocked: fail silently, sound feedback is a nice-to-have.
     }
   };
@@ -240,7 +219,7 @@ export default function SettingsPanel() {
         if (Array.isArray(data.suggestedFeeds) && data.suggestedFeeds.length > 0) {
           setPendingSuggestedFeeds(prev => {
             const existingUrls = new Set(prev.map(f => f.url));
-            const fresh = data.suggestedFeeds.filter((f: any) => !existingUrls.has(f.url));
+            const fresh = data.suggestedFeeds.filter((f: SuggestedFeed) => !existingUrls.has(f.url));
             return [...prev, ...fresh];
           });
         }
@@ -265,7 +244,6 @@ export default function SettingsPanel() {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.interests) setInterests(data.interests);
         if (data.feeds) setFeeds(data.feeds);
         setInterviewOpen(false);
         setPendingExtracted([]);
@@ -289,12 +267,10 @@ export default function SettingsPanel() {
     try {
       const iRes = await fetch('/api/interests');
       if (iRes.ok) {
-        const iData = await iRes.json();
-        setInterests(Array.isArray(iData) ? iData : []);
+        await iRes.json();
       }
     } catch (e) {
       console.error("Error loading interests:", e);
-      setInterests([]);
     }
 
     try {
@@ -302,18 +278,8 @@ export default function SettingsPanel() {
       if (fRes.ok) {
         const fData = await fRes.json();
         const fList = Array.isArray(fData) ? fData : [];
-        registerSourceNames(fList.map((f: any) => f.name));
+        registerSourceNames(fList.map((f: SuggestedFeed) => f.name));
         setFeeds(fList);
-      }
-      
-      const sRes = await fetch('/api/feeds/stats');
-      if (sRes.ok) {
-        const sData = await sRes.json();
-        const statsMap = sData.reduce((acc: Record<string, number>, item: { name: string, shownCount: number }) => {
-          acc[item.name] = item.shownCount;
-          return acc;
-        }, {});
-        setFeedStats(statsMap);
       }
     } catch (e) {
       console.error("Error loading feeds:", e);
@@ -435,9 +401,9 @@ export default function SettingsPanel() {
         setPushSubscribed(true);
         setPushStatusMessage("Notifiche push attivate con successo!");
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Push subscription error:", e);
-      setPushStatusMessage(`Errore: ${e.message || "Impossibile attivare le notifiche push"}`);
+      setPushStatusMessage(`Errore: ${getErrorMessage(e) || "Impossibile attivare le notifiche push"}`);
     } finally {
       setPushLoading(false);
       setTimeout(() => setPushStatusMessage(null), 6000);
@@ -467,48 +433,6 @@ export default function SettingsPanel() {
     } catch (e) {
       console.error("Test notification error:", e);
     }
-  };
-
-  const addInterest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newKeyword.trim()) return;
-    
-    await fetch('/api/interests', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword: newKeyword.trim(), type: newType, weight: newType === 'positive' ? 1.0 : 0.5 })
-    });
-    setNewKeyword("");
-    loadData();
-  };
-
-  const deleteInterest = async (id: number) => {
-    await fetch(`/api/interests/${id}`, { method: 'DELETE' });
-    setInterests(prev => prev.filter(i => i.id !== id));
-  };
-
-  const addFeed = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFeedUrl || !newFeedName) return;
-    
-    // Explicitly set isManual: true for user-added feeds
-    const feedName = newFeedName;
-    await fetch('/api/feeds', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: newFeedUrl, name: feedName, isManual: true, addedVia: "Aggiunta manuale" })
-    });
-    setNewFeedUrl("");
-    setNewFeedName("");
-    setTestResult(null);
-    loadData();
-    // Trigger an immediate fetch for the newly added source so its articles show up right away.
-    fetch('/api/fetch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ feedName })
-    }).catch(err => console.error("Error fetching new source:", err))
-      .finally(() => window.dispatchEvent(new CustomEvent('refresh-articles')));
   };
 
   const deleteFeed = async (id: number) => {
@@ -542,13 +466,13 @@ export default function SettingsPanel() {
       if (data?.createdTransformer || data?.validRss) {
         window.dispatchEvent(new CustomEvent('refresh-articles'));
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       clearTimeout(timeoutId);
       setTransformerResults(prev => ({
         ...prev,
         [feedId]: {
           loading: false,
-          reason: e.name === 'AbortError'
+          reason: e instanceof Error && e.name === 'AbortError'
             ? "L'operazione sta impiegando troppo tempo (probabile limite di quota AI raggiunto). Riprova tra qualche minuto."
             : "Errore imprevisto durante la creazione del trasformatore."
         }
@@ -575,16 +499,6 @@ export default function SettingsPanel() {
       console.error("Error resetting app data:", e);
       setIsResetting(false);
     }
-  };
-
-  const toggleManualStatus = async (feed: Feed) => {
-    const newStatus = !feed.isManual;
-    await fetch(`/api/feeds/${feed.id}/manual`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isManual: newStatus })
-    });
-    setFeeds(prev => prev.map(f => f.id === feed.id ? { ...f, isManual: newStatus } : f));
   };
 
   const [isRegenerateConfirmOpen, setIsRegenerateConfirmOpen] = useState(false);
@@ -621,8 +535,8 @@ export default function SettingsPanel() {
         manualCount: data.manualCount || 0,
         suggestedFeeds: data.suggestedFeeds || []
       });
-    } catch (e: any) {
-      console.warn("Errore generazione feed:", e.message || e);
+    } catch (e: unknown) {
+      console.warn("Errore generazione feed:", getErrorMessage(e));
     } finally {
       setIsGenerating(false);
     }
@@ -661,8 +575,8 @@ export default function SettingsPanel() {
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed)) throw new Error("Il file deve contenere un array di sorgenti.");
       const cleaned = parsed
-        .filter((f: any) => f && typeof f.url === 'string' && f.url.trim())
-        .map((f: any) => ({
+        .filter((f: ImportFeedCandidate) => f && typeof f.url === 'string' && f.url.trim())
+        .map((f: ImportFeedCandidate) => ({
           url: f.url.trim(),
           name: f.name ? String(f.name).trim() : f.url.trim(),
           isManual: true,
@@ -686,13 +600,10 @@ export default function SettingsPanel() {
           ? `Importate ${newCount} nuove sorgenti (le altre già presenti sono state ignorate, aggiornando solo la chiave di ricerca mancante).`
           : `Nessuna nuova sorgente da aggiungere: tutte già presenti (chiave di ricerca aggiornata dove mancante).`
       );
-    } catch (err: any) {
-      setImportFeedback(`Errore: ${err.message || "file non valido."}`);
+    } catch (err: unknown) {
+      setImportFeedback(`Errore: ${getErrorMessage(err) || "file non valido."}`);
     }
   };
-
-  const manualFeedsCount = feeds.length;
-  const autoFeedsCount = 0;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 relative">

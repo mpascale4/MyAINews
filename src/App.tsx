@@ -8,6 +8,11 @@ import { BookOpen, Home, Settings, BarChart2, Bell, Sun, Moon, Bookmark, Trash2 
 import { MpBranding } from "@mp/app-kit";
 import ArticlesList from "./components/ArticlesList";
 import ReadLaterPage from "./components/ReadLaterPage";
+
+type ArticleNotificationCandidate = {
+  isRead?: boolean;
+  aiRelevance?: number;
+};
 import Dashboard from "./components/Dashboard";
 import SettingsPanel from "./components/SettingsPanel";
 import TrashPage from "./components/TrashPage";
@@ -54,7 +59,7 @@ export default function App() {
       })
       .then(data => {
         if (Array.isArray(data)) {
-          const unreadHigh = data.filter((a: any) => a && !a.isRead && a.aiRelevance >= 80);
+          const unreadHigh = data.filter((a: ArticleNotificationCandidate) => a && !a.isRead && (a.aiRelevance ?? 0) >= 80);
           if (unreadHigh.length > 0) {
              setNotifications([`Hai ${unreadHigh.length} nuove notizie ad alta rilevanza!`]);
           }
@@ -275,4 +280,3 @@ export default function App() {
     </div>
   );
 }
-

@@ -10,14 +10,35 @@ import {
   registerPushSubscription, 
   unregisterPushSubscription, 
   sendTestPush, 
-  sendPushToAll, 
   notifyNewHighRelevanceArticles 
 } from "./src/lib/pushNotifications";
 import { desc, eq, and, gte, like, or, isNull, sql } from "drizzle-orm";
-import { parseISO, subDays } from "date-fns";
+import { subDays } from "date-fns";
 import * as dotenv from "dotenv";
 
 dotenv.config();
+
+type FeedInput = {
+  url?: string;
+  name?: string;
+  isManual?: boolean;
+  addedVia?: string;
+};
+
+type SyncInterestInput = {
+  keyword?: string;
+  type?: string;
+  weight?: number;
+};
+
+type SyncFeedInput = {
+  url?: string;
+  name?: string;
+};
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 async function startServer() {
   const app = express();
@@ -153,8 +174,8 @@ async function startServer() {
       }
 
       res.json(results);
-    } catch (err: any) {
-      console.error("Error in /api/articles:", err.message || err);
+    } catch (err: unknown) {
+      console.error("Error in /api/articles:", getErrorMessage(err));
       res.status(500).json({ error: "Internal Server Error" });
     }
   });
@@ -256,9 +277,7 @@ async function startServer() {
       const article = await db.select().from(articles).where(eq(articles.id, id)).get();
       if (!article) return res.status(404).json({ error: "Article not found" });
 
-      const userInterests = await db.select().from(interests);
-      
-      const { summary, relevance, tags } = await processArticleWithAI(article.title, article.content || "", userInterests);
+      const { summary, relevance, tags } = await processArticleWithAI(article.title, article.content || "");
       
       if (summary.includes("Summary generation failed") || summary.includes("JSON Parse failed")) {
         return res.status(500).json({ error: summary });
@@ -269,8 +288,8 @@ async function startServer() {
         .where(eq(articles.id, id));
         
       res.json({ success: true, aiSummary: summary, aiTags: tags, aiRelevance: relevance });
-    } catch (err: any) {
-      console.warn("Error regenerating summary:", err.message || "Unknown error");
+    } catch (err: unknown) {
+      console.warn("Error regenerating summary:", getErrorMessage(err) || "Unknown error");
       res.status(500).json({ error: "Internal Server Error" });
     }
   });
@@ -547,9 +566,9 @@ async function startServer() {
       if (!url) return res.status(400).json({ error: "URL is required" });
       const result = await testFeedUrl(url);
       res.json(result);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error testing feed:", err);
-      res.status(500).json({ error: err.message || "Internal Server Error" });
+      res.status(500).json({ error: getErrorMessage(err) || "Internal Server Error" });
     }
   });
   
@@ -568,12 +587,12 @@ async function startServer() {
       // Fire-and-forget: if the RSS feed turns out to be invalid but the page is
       // scrapeable, generate and save an ad-hoc HTML transformer right away.
       if (newFeedId) {
-        ensureScraperConfigForFeed(newFeedId, url, name || url).catch((e: any) => {
-          console.warn("Background ad-hoc transformer setup failed:", e.message || e);
+        ensureScraperConfigForFeed(newFeedId, url, name || url).catch((e: unknown) => {
+          console.warn("Background ad-hoc transformer setup failed:", getErrorMessage(e));
         });
       }
-    } catch (err: any) {
-      console.warn("Error adding feed:", err.message || err);
+    } catch (err: unknown) {
+      console.warn("Error adding feed:", getErrorMessage(err));
       res.status(500).json({ error: "Internal Server Error" });
     }
   });
@@ -585,8 +604,8 @@ async function startServer() {
       const isManual = Boolean(req.body.isManual);
       await db.update(rssFeeds).set({ isManual }).where(eq(rssFeeds.id, id));
       res.json({ success: true });
-    } catch (err: any) {
-      console.warn("Error toggling feed manual flag:", err.message || err);
+    } catch (err: unknown) {
+      console.warn("Error toggling feed manual flag:", getErrorMessage(err));
       res.status(500).json({ error: "Internal Server Error" });
     }
   });
@@ -607,11 +626,11 @@ async function startServer() {
       res.json({ success: true });
 
       // Fire-and-forget: try RSS first, then fall back to an ad-hoc transformer.
-      ensureScraperConfigForFeed(id, url, feed.name || url).catch((e: any) => {
-        console.warn("Background ad-hoc transformer setup failed after URL fix:", e.message || e);
+      ensureScraperConfigForFeed(id, url, feed.name || url).catch((e: unknown) => {
+        console.warn("Background ad-hoc transformer setup failed after URL fix:", getErrorMessage(e));
       });
-    } catch (err: any) {
-      console.warn("Error fixing feed URL:", err.message || err);
+    } catch (err: unknown) {
+      console.warn("Error fixing feed URL:", getErrorMessage(err));
       res.status(500).json({ error: "Internal Server Error" });
     }
   });
@@ -627,8 +646,8 @@ async function startServer() {
 
       const result = await ensureScraperConfigForFeed(id, feed.url, feed.name || feed.url);
       res.json(result);
-    } catch (err: any) {
-      console.warn("Error creating transformer:", err.message || err);
+    } catch (err: unknown) {
+      console.warn("Error creating transformer:", getErrorMessage(err));
       res.status(500).json({ error: "Internal Server Error" });
     }
   });
@@ -637,12 +656,12 @@ async function startServer() {
   app.post("/api/feeds/bulk", async (req, res) => {
     try {
       if (req.body.feeds && req.body.feeds.length > 0) {
-        const cleanedFeeds = req.body.feeds.map((f: any) => ({
+        const cleanedFeeds = req.body.feeds.map((f: FeedInput) => ({
           url: f.url ? f.url.trim().replace(/\/feed\/$/, '/feed') : '',
           name: f.name ? f.name.trim() : '',
           isManual: f.isManual !== undefined ? Boolean(f.isManual) : false,
           addedVia: f.addedVia ? String(f.addedVia).trim().slice(0, 200) : null
-        })).filter((f: any) => f.url);
+        })).filter((f: { url: string }) => f.url);
         if (cleanedFeeds.length > 0) {
           await db.insert(rssFeeds).values(cleanedFeeds).onConflictDoNothing();
 
@@ -666,8 +685,8 @@ async function startServer() {
         }
       }
       res.json({ success: true });
-    } catch (err: any) {
-      console.warn("Error adding bulk feeds:", err.message || err);
+    } catch (err: unknown) {
+      console.warn("Error adding bulk feeds:", getErrorMessage(err));
       res.status(500).json({ error: "Internal Server Error" });
     }
   });
@@ -727,8 +746,8 @@ async function startServer() {
         suggestedFeeds: detailedResults,
         feeds: currentFeeds
       });
-    } catch (err: any) {
-      console.warn("Error in generate-ai feeds:", err.message || err);
+    } catch (err: unknown) {
+      console.warn("Error in generate-ai feeds:", getErrorMessage(err));
       res.status(500).json({ error: "Internal Server Error" });
     }
   });
@@ -743,7 +762,7 @@ async function startServer() {
         await db.delete(articles).where(eq(articles.source, feed.name));
       }
       res.json({ success: true });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error deleting feed:", err);
       res.status(500).json({ error: "Internal Server Error" });
     }
@@ -754,8 +773,8 @@ async function startServer() {
     try {
       const key = getVapidPublicKey();
       res.json({ publicKey: key });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
+    } catch (e: unknown) {
+      res.status(500).json({ error: getErrorMessage(e) });
     }
   });
 
@@ -764,9 +783,9 @@ async function startServer() {
       const subscription = req.body;
       await registerPushSubscription(subscription);
       res.json({ success: true });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Error subscribing to push:", e);
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getErrorMessage(e) });
     }
   });
 
@@ -775,8 +794,8 @@ async function startServer() {
       const { endpoint } = req.body;
       await unregisterPushSubscription(endpoint);
       res.json({ success: true });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
+    } catch (e: unknown) {
+      res.status(500).json({ error: getErrorMessage(e) });
     }
   });
 
@@ -785,8 +804,8 @@ async function startServer() {
       const { endpoint } = req.body;
       const result = await sendTestPush(endpoint);
       res.json(result);
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
+    } catch (e: unknown) {
+      res.status(500).json({ error: getErrorMessage(e) });
     }
   });
 
@@ -795,7 +814,7 @@ async function startServer() {
     try {
       const row = await db.select().from(appSettings).where(eq(appSettings.key, "push_threshold")).get();
       res.json({ threshold: row ? parseInt(row.value, 10) : 80 });
-    } catch (e) {
+    } catch {
       res.json({ threshold: 80 });
     }
   });
@@ -814,7 +833,7 @@ async function startServer() {
       });
 
       res.json({ success: true, threshold });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Error updating push threshold:", e);
       res.status(500).json({ error: "Internal Server Error" });
     }
@@ -824,12 +843,11 @@ async function startServer() {
   app.post("/api/profile/interview", async (req, res) => {
     try {
       const { messages } = req.body;
-      const currentInterests = await db.select().from(interests);
-      const result = await runProfileInterview(messages || [], currentInterests);
+      const result = await runProfileInterview(messages || []);
       res.json(result);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Error in profile interview:", e);
-      res.status(500).json({ error: e.message || "Internal Server Error" });
+      res.status(500).json({ error: getErrorMessage(e) || "Internal Server Error" });
     }
   });
 
@@ -837,7 +855,7 @@ async function startServer() {
     try {
       const { newInterests, newFeeds } = req.body;
       if (Array.isArray(newInterests)) {
-        for (const item of newInterests) {
+        for (const item of newInterests as SyncInterestInput[]) {
           const keyword = String(item.keyword || "").trim();
           const type = item.type === 'negative' ? 'negative' : 'positive';
           const weight = typeof item.weight === 'number' ? item.weight : 1.0;
@@ -851,7 +869,7 @@ async function startServer() {
       }
 
       if (Array.isArray(newFeeds)) {
-        for (const feed of newFeeds) {
+        for (const feed of newFeeds as SyncFeedInput[]) {
           const url = String(feed.url || "").trim();
           const name = String(feed.name || "").trim();
           if (url && name) {
@@ -866,9 +884,9 @@ async function startServer() {
       const updatedInterests = await db.select().from(interests);
       const updatedFeeds = await db.select().from(rssFeeds);
       res.json({ success: true, interests: updatedInterests, feeds: updatedFeeds });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Error syncing interview interests and feeds:", e);
-      res.status(500).json({ error: e.message || "Internal Server Error" });
+      res.status(500).json({ error: getErrorMessage(e) || "Internal Server Error" });
     }
   });
 
@@ -882,9 +900,9 @@ async function startServer() {
       await db.delete(interests);
       await db.delete(userBehavior);
       res.json({ success: true });
-    } catch (err: any) {
-      console.error("Error resetting app data:", err.message || err);
-      res.status(500).json({ error: err.message || "Internal Server Error" });
+    } catch (err: unknown) {
+      console.error("Error resetting app data:", getErrorMessage(err));
+      res.status(500).json({ error: getErrorMessage(err) || "Internal Server Error" });
     }
   });
 
@@ -911,9 +929,9 @@ async function startServer() {
       );
 
       res.json({ feeds: validated.filter((f): f is NonNullable<typeof f> => f !== null) });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Error in AI feed search:", e);
-      res.status(500).json({ error: e.message || "Internal Server Error" });
+      res.status(500).json({ error: getErrorMessage(e) || "Internal Server Error" });
     }
   });
 

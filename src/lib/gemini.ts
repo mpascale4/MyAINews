@@ -2,6 +2,10 @@ import { GoogleGenAI } from "@google/genai";
 
 let aiClient: GoogleGenAI | null = null;
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function getGemini() {
   if (!aiClient) {
     if (process.env.GEMINI_API_KEY) {
@@ -20,7 +24,7 @@ export function getGemini() {
   return aiClient;
 }
 
-export async function processArticleWithAI(title: string, content: string, interests: { keyword: string, type: string, weight: number }[] = []) {
+export async function processArticleWithAI(title: string, content: string) {
   const gemini = getGemini();
   if (!gemini) {
     return { summary: "AI Summary non disponibile (Chiave API non configurata).", relevance: 50 };
@@ -75,7 +79,7 @@ Rispondi ESCLUSIVAMENTE con un JSON valido nel seguente formato:
       let parsed;
       try {
         parsed = JSON.parse(response.text);
-      } catch (e: any) {
+      } catch {
         console.warn("JSON parse fallback for summary");
       }
       if (parsed && parsed.summary) {
@@ -86,8 +90,8 @@ Rispondi ESCLUSIVAMENTE con un JSON valido nel seguente formato:
         };
       }
     }
-  } catch (err: any) {
-    console.warn("Gemini API warning:", err?.message || String(err));
+  } catch (err: unknown) {
+    console.warn("Gemini API warning:", getErrorMessage(err));
   }
 
   // Graceful fallback if Gemini API is unavailable or quota is exceeded
@@ -104,4 +108,3 @@ Rispondi ESCLUSIVAMENTE con un JSON valido nel seguente formato:
 export { generateFeedsWithAI, runProfileInterview, type AIFeedSuggestion } from "./geminiFeedGeneration";
 export { searchFeedsByKeyword } from "./geminiFeedSearch";
 export { scrapeArticlesWithAI, generateScraperConfig } from "./geminiScraper";
-

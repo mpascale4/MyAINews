@@ -29,7 +29,7 @@ export async function decodeResponseText(response: Response): Promise<string> {
   if (charset && charset !== "utf-8" && charset !== "utf8") {
     try {
       return new TextDecoder(charset).decode(buffer);
-    } catch (e) {
+    } catch {
       // Unsupported/unknown label, fall through to UTF-8
     }
   }
@@ -37,7 +37,13 @@ export async function decodeResponseText(response: Response): Promise<string> {
   return buffer.toString("utf-8");
 }
 
-export function extractImageUrl(item: any): string | null {
+type RssImageCandidate = {
+  mediaContent?: Array<{ $?: { url?: string } }>;
+  contentEncoded?: string;
+  content?: string;
+};
+
+export function extractImageUrl(item: RssImageCandidate): string | null {
   if (item.mediaContent && item.mediaContent.length > 0) {
     return item.mediaContent[0]['$']?.url || null;
   }

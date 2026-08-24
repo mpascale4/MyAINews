@@ -6,6 +6,10 @@ import { applyScraperConfig, type ScraperConfig, type ScrapedArticle } from "./s
 import { decodeResponseText, cleanHtmlForAI } from "./rssTextUtils";
 import { fetchFeedWithFallback } from "./rss";
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Robust HTML fetch (node fetch with http/https fallback + system curl fallback),
  * used both by the AI-based scraper and by the ad-hoc CSS-selector scraper.
@@ -43,9 +47,9 @@ export async function fetchHtmlWithFallback(url: string): Promise<string> {
       } else {
         console.warn(`Node fetch for ${targetUrl} returned status ${response.status}`);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       lastError = e;
-      console.warn(`Node fetch failed for ${targetUrl}: ${e.message}`);
+      console.warn(`Node fetch failed for ${targetUrl}: ${getErrorMessage(e)}`);
     }
 
     if (!fetchSuccess) {
@@ -64,10 +68,10 @@ export async function fetchHtmlWithFallback(url: string): Promise<string> {
             console.log(`System curl success for ${targetUrl} (${output.length} bytes)`);
             return output;
           }
-        } catch (e) {
+        } catch {
           console.warn(`Curl execution failed for ${targetUrl} (likely timeout or block)`);
         }
-      } catch (curlErr: any) {
+      } catch (curlErr: unknown) {
         lastError = curlErr;
       }
     } else {
@@ -89,7 +93,7 @@ export async function fetchHtmlWithFallback(url: string): Promise<string> {
  *    one-shot AI scraper (scrapeArticlesWithAI) so we still get articles this
  *    cycle, without saving any reusable config.
  */
-export async function scrapeSourceWithAdHocTransformer(feed: { id: number; url: string; name: string; scraperConfig: ScraperConfig | null }): Promise<ScrapedArticle[] | any[]> {
+export async function scrapeSourceWithAdHocTransformer(feed: { id: number; url: string; name: string; scraperConfig: ScraperConfig | null }): Promise<ScrapedArticle[]> {
   const html = await fetchHtmlWithFallback(feed.url);
   console.log(`Fetched ${html.length} bytes of HTML for ${feed.name}`);
 
@@ -101,8 +105,8 @@ export async function scrapeSourceWithAdHocTransformer(feed: { id: number; url: 
         return items;
       }
       console.log(`Saved ad-hoc transformer for ${feed.name} returned 0 articles, regenerating (self-healing)...`);
-    } catch (e: any) {
-      console.warn(`Saved ad-hoc transformer failed for ${feed.name}, regenerating:`, e.message || e);
+    } catch (e: unknown) {
+      console.warn(`Saved ad-hoc transformer failed for ${feed.name}, regenerating:`, getErrorMessage(e));
     }
   }
 
@@ -116,8 +120,8 @@ export async function scrapeSourceWithAdHocTransformer(feed: { id: number; url: 
         console.log(`Generated and saved new ad-hoc transformer for ${feed.name} (${items.length} items)`);
         return items;
       }
-    } catch (e: any) {
-      console.warn(`Newly generated ad-hoc transformer failed for ${feed.name}:`, e.message || e);
+    } catch (e: unknown) {
+      console.warn(`Newly generated ad-hoc transformer failed for ${feed.name}:`, getErrorMessage(e));
     }
   }
 
@@ -163,8 +167,8 @@ export async function ensureScraperConfigForFeed(feedId: number, url: string, so
       return { createdTransformer: true, validRss: false, itemCount: items.length };
     }
     return { createdTransformer: false, validRss: false, itemCount: 0, reason: "Trasformatore generato ma 0 articoli estratti." };
-  } catch (e: any) {
-    console.warn(`Could not create ad-hoc transformer for ${sourceName}:`, e.message || e);
-    return { createdTransformer: false, validRss: false, itemCount: 0, reason: e.message || "Errore imprevisto." };
+  } catch (e: unknown) {
+    console.warn(`Could not create ad-hoc transformer for ${sourceName}:`, getErrorMessage(e));
+    return { createdTransformer: false, validRss: false, itemCount: 0, reason: getErrorMessage(e) || "Errore imprevisto." };
   }
 }

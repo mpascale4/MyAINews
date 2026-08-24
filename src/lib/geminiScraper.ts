@@ -1,6 +1,17 @@
 import { getGemini } from "./gemini";
 import type { ScraperConfig } from "./scraper";
 
+type ScrapedArticleCandidate = {
+  title?: string;
+  link?: string;
+  snippet?: string;
+  pubDate?: string;
+};
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export async function scrapeArticlesWithAI(url: string, htmlSnippet: string, sourceName: string) {
   const gemini = getGemini();
   if (!gemini) {
@@ -53,17 +64,17 @@ ${htmlSnippet.substring(0, 15000)}`;
     if (response.text) {
       const parsed = JSON.parse(response.text);
       if (Array.isArray(parsed.articles)) {
-        return parsed.articles.map((a: any) => ({
+        return parsed.articles.map((a: ScrapedArticleCandidate) => ({
           title: String(a.title || "No Title"),
           link: String(a.link || ""),
           content: String(a.snippet || ""),
           pubDate: a.pubDate || new Date().toISOString(),
           guid: a.link || `ai-${Math.random().toString(36).substring(7)}`
-        })).filter((a: any) => a.link && a.link.startsWith("http"));
+        })).filter((a: { link: string }) => a.link && a.link.startsWith("http"));
       }
     }
-  } catch (err: any) {
-    console.warn(`AI Scraping error for ${sourceName}:`, err.message || "Unknown error");
+  } catch (err: unknown) {
+    console.warn(`AI Scraping error for ${sourceName}:`, getErrorMessage(err) || "Unknown error");
   }
 
   return [];
@@ -132,8 +143,8 @@ ${htmlSnippet.substring(0, 15000)}`;
         };
       }
     }
-  } catch (err: any) {
-    console.warn(`AI ScraperConfig generation error for ${sourceName}:`, err.message || "Unknown error");
+  } catch (err: unknown) {
+    console.warn(`AI ScraperConfig generation error for ${sourceName}:`, getErrorMessage(err) || "Unknown error");
   }
 
   return null;

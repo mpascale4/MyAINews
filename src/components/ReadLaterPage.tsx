@@ -15,7 +15,16 @@ import ConfirmOverlay from "./ConfirmOverlay";
 import ArticleInfoModal from "./ArticleInfoModal";
 import ReadLaterSummaryModal from "./ReadLaterSummaryModal";
 
-function HiddenArticlePlaceholder({ article, onUndo }: { article: Article; onUndo: () => void | Promise<void>; key?: any }) {
+type ShareErrorWithName = {
+  name?: string;
+};
+
+type HiddenArticlePlaceholderProps = {
+  article: Article;
+  onUndo: () => void | Promise<void>;
+};
+
+function HiddenArticlePlaceholder({ article, onUndo }: HiddenArticlePlaceholderProps & React.JSX.IntrinsicAttributes) {
   const [timeLeft, setTimeLeft] = useState(6);
   
   useEffect(() => {
@@ -82,7 +91,6 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
   const [pendingRegenerateId, setPendingRegenerateId] = useState<number | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-  const [hiddenArticle, setHiddenArticle] = useState<Article | null>(null);
   const [recentlyHiddenIds, setRecentlyHiddenIds] = useState<Record<number, boolean>>({});
   const [infoModalArticle, setInfoModalArticle] = useState<Article | null>(null);
 
@@ -95,15 +103,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
     await fetch(`/api/articles/${id}/unhide`, { method: "POST" });
   };
 
-  const undoHideArticle = async () => {
-    if (!hiddenArticle) return;
-    const articleToRestore = hiddenArticle;
-    setHiddenArticle(null);
-    setArticles(prev => [articleToRestore, ...prev]);
-    await fetch(`/api/articles/${articleToRestore.id}/unhide`, { method: "POST" });
-  };
   const [interestsList, setInterestsList] = useState<Interest[]>([]);
-  const [tagModal, setTagModal] = useState<{ tag: string } | null>(null);
 
   const fetchInterests = async () => {
     try {
@@ -236,8 +236,8 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
         setFeedbackMessage("Notizia condivisa!");
         setTimeout(() => setFeedbackMessage(null), 4000);
         return;
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+      } catch (err: unknown) {
+        if ((err as ShareErrorWithName).name === 'AbortError') return;
       }
     }
 
@@ -245,7 +245,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
       await navigator.clipboard.writeText(`${title}\n${url}`);
       setFeedbackMessage("Link copiato negli appunti!");
       setTimeout(() => setFeedbackMessage(null), 4000);
-    } catch (err) {
+    } catch {
       setFeedbackMessage("Impossibile copiare il link.");
       setTimeout(() => setFeedbackMessage(null), 4000);
     }

@@ -10,6 +10,20 @@ export interface AIFeedSuggestion {
   confidence?: number;
 }
 
+type FeedSuggestionCandidate = {
+  name?: string;
+  url?: string;
+  type?: string;
+  verified?: boolean;
+  confidence?: number;
+  reason?: string;
+  category?: string;
+};
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export async function generateFeedsWithAI(
   interests: { keyword: string, type: string, weight?: number }[],
   existingFeeds: { url: string, name: string }[] = []
@@ -107,7 +121,7 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON valido nel seguente formato:
       try {
         const parsed = JSON.parse(response.text);
         if (Array.isArray(parsed.feeds) && parsed.feeds.length > 0) {
-          return parsed.feeds.map((f: any) => ({
+          return parsed.feeds.map((f: FeedSuggestionCandidate) => ({
             name: String(f.name || "Fonte Notizie"),
             url: String(f.url || "").trim(),
             type: f.type || 'rss',
@@ -115,22 +129,21 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON valido nel seguente formato:
             confidence: typeof f.confidence === 'number' ? f.confidence : 0.0,
             reason: String(f.reason || "Consigliato dall'AI in base ai tuoi interessi."),
             category: String(f.category || "Generale")
-          })).filter((f: any) => f.url && f.url.startsWith("http"));
+          })).filter((f: AIFeedSuggestion) => f.url && f.url.startsWith("http"));
         }
-      } catch (err: any) {
-        console.warn("Could not parse AI feed suggestion JSON:", err.message);
+      } catch (err: unknown) {
+        console.warn("Could not parse AI feed suggestion JSON:", getErrorMessage(err));
       }
     }
-  } catch (err: any) {
-    console.warn("Gemini API warning during feed generation:", err.message || "Unknown error");
+  } catch (err: unknown) {
+    console.warn("Gemini API warning during feed generation:", getErrorMessage(err) || "Unknown error");
   }
 
   return fallbackSuggestions;
 }
 
 export async function runProfileInterview(
-  messages: { role: 'user' | 'assistant', content: string }[],
-  currentInterests: { keyword: string, type: string, weight: number }[] = []
+  messages: { role: 'user' | 'assistant', content: string }[]
 ) {
   const gemini = getGemini();
   if (!gemini) {
@@ -193,4 +206,3 @@ Istruzioni:
     suggestedFeeds: []
   };
 }
-

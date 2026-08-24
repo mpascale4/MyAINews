@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from "react";
-import { Article, Interest } from "../types";
+import { Article } from "../types";
 import { 
   CheckCircle, 
   Filter, 
@@ -16,6 +16,12 @@ import ArticlesGrid from "./ArticlesGrid";
 import { registerSourceNames } from "../lib/sourceStyle";
 
 const FILTERS = ["All", "Today"];
+
+type FeedListEntry = {
+  id?: number;
+  url: string;
+  name: string;
+};
 
 export default function ArticlesList() {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -40,7 +46,14 @@ export default function ArticlesList() {
   const [transformerFeedback, setTransformerFeedback] = useState<string | null>(null);
 
   // Source click frequency tracking
-  const [sourceClickCounts, setSourceClickCounts] = useState<Record<string, number>>(() => {
+  // Excluded / Negative Interests list for reactive tag state
+  const [tagModal, setTagModal] = useState<{ tag: string } | null>(null);
+  const [tagSearchLoading, setTagSearchLoading] = useState(false);
+  const [tagSearchResults, setTagSearchResults] = useState<{ name: string; url: string; reason: string; category: string }[]>([]);
+  const [tagSearchFeedback, setTagSearchFeedback] = useState<string | null>(null);
+  const [allAddedFeeds, setAllAddedFeeds] = useState<Record<string, boolean>>({});
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [, setSourceClickCounts] = useState<Record<string, number>>(() => {
     try {
       const saved = localStorage.getItem("source_click_counts");
       return saved ? JSON.parse(saved) : {};
@@ -48,16 +61,6 @@ export default function ArticlesList() {
       return {};
     }
   });
-
-  // Excluded / Negative Interests list for reactive tag state
-  const [interestsList, setInterestsList] = useState<Interest[]>([]);
-  const [tagModal, setTagModal] = useState<{ tag: string } | null>(null);
-  const [tagSearchLoading, setTagSearchLoading] = useState(false);
-  const [tagSearchResults, setTagSearchResults] = useState<{ name: string; url: string; reason: string; category: string }[]>([]);
-  const [tagSearchFeedback, setTagSearchFeedback] = useState<string | null>(null);
-  const [allAddedFeeds, setAllAddedFeeds] = useState<Record<string, boolean>>({});
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-  const [recentlyHiddenIds, setRecentlyHiddenIds] = useState<Record<number, boolean>>({});
   const [recentlyHiddenQueue, setRecentlyHiddenQueue] = useState<Article[]>([]);
   const [infoModalArticle, setInfoModalArticle] = useState<Article | null>(null);
 
@@ -66,7 +69,7 @@ export default function ArticlesList() {
     fetch('/api/feeds')
       .then(res => res.json())
       .then(feeds => {
-        const addedMap = feeds.reduce((acc: Record<string, boolean>, feed: any) => {
+        const addedMap = feeds.reduce((acc: Record<string, boolean>, feed: FeedListEntry) => {
           acc[feed.url] = true;
           return acc;
         }, {});
@@ -83,11 +86,6 @@ export default function ArticlesList() {
   }, [tagModal]);
 
   const undoHideArticleInline = async (id: number) => {
-    setRecentlyHiddenIds(prev => {
-      const updated = { ...prev };
-      delete updated[id];
-      return updated;
-    });
     const article = recentlyHiddenQueue.find(a => a.id === id);
     setRecentlyHiddenQueue(prev => prev.filter(a => a.id !== id));
     if (article) {
@@ -101,26 +99,13 @@ export default function ArticlesList() {
   const startYRef = useRef(0);
   const isPullingRef = useRef(false);
 
-  const fetchInterests = async () => {
-    try {
-      const res = await fetch("/api/interests");
-      if (res.ok) {
-        const data = await res.json();
-        setInterestsList(Array.isArray(data) ? data : []);
-      }
-    } catch (e) {
-      console.error("Error fetching interests:", e);
-      setInterestsList([]);
-    }
-  };
-
   const fetchSources = async () => {
     try {
       const res = await fetch("/api/feeds");
       if (res.ok) {
         const feedsData = await res.json();
         const feedList = Array.isArray(feedsData) ? feedsData : [];
-        registerSourceNames(feedList.map((f: any) => f.name));
+        registerSourceNames(feedList.map((f: FeedListEntry) => f.name));
         setConfiguredFeeds(feedList);
       }
     } catch (e) {
@@ -165,12 +150,10 @@ export default function ArticlesList() {
   };
 
   useEffect(() => {
-    fetchInterests();
     fetchSources();
     
     const handleGlobalRefresh = () => {
       fetchArticles();
-      fetchInterests();
       fetchSources();
     };
 
@@ -364,11 +347,11 @@ export default function ArticlesList() {
         setTransformerFeedback(data.reason || "Non è stato possibile creare un trasformatore per questa sorgente.");
       }
       fetchArticles();
-    } catch (err: any) {
+    } catch (err: unknown) {
       clearTimeout(timeoutId);
       console.error("Error creating transformer:", err);
       setTransformerFeedback(
-        err.name === 'AbortError'
+        err instanceof Error && err.name === 'AbortError'
           ? "L'operazione sta impiegando troppo tempo (probabile limite di quota AI raggiunto). Riprova tra qualche minuto."
           : "Errore durante il tentativo di creazione del trasformatore. Riprova."
       );
@@ -392,7 +375,7 @@ export default function ArticlesList() {
       setConfiguredFeeds(prev => prev.filter(f => f.id !== feed.id));
       setSelectedSource("");
       fetchArticles();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error removing source:", err);
       setTransformerFeedback("Errore durante la rimozione della sorgente. Riprova.");
     } finally {
@@ -434,7 +417,6 @@ export default function ArticlesList() {
     // Remove immediately from the main list so it doesn't shift while reading others,
     // and show an undo toast instead of an inline placeholder.
     setArticles(prev => prev.filter(a => a.id !== id));
-    setRecentlyHiddenIds(prev => ({ ...prev, [id]: true }));
     setRecentlyHiddenQueue(prev => [...prev, article]);
 
     // Call hide API immediately
@@ -442,14 +424,6 @@ export default function ArticlesList() {
 
     // In 3 seconds, if it has not been restored, drop it from the undo toast queue
     setTimeout(() => {
-      setRecentlyHiddenIds(prev => {
-        if (prev[id]) {
-          const updated = { ...prev };
-          delete updated[id];
-          return updated;
-        }
-        return prev;
-      });
       setRecentlyHiddenQueue(prev => prev.filter(a => a.id !== id));
     }, 3000);
   };
@@ -475,8 +449,8 @@ export default function ArticlesList() {
         setFeedbackMessage("Notizia condivisa con successo!");
         setTimeout(() => setFeedbackMessage(null), 4000);
         return;
-      } catch (err: any) {
-        if (err.name === 'AbortError') return; // User cancelled
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return; // User cancelled
       }
     }
 
@@ -799,4 +773,3 @@ export default function ArticlesList() {
     </div>
   );
 }
-

@@ -2,7 +2,7 @@ import webpush from "web-push";
 import fs from "fs";
 import path from "path";
 import { db } from "../db";
-import { pushSubscriptions, articles, interests, appSettings } from "../db/schema";
+import { pushSubscriptions, articles, appSettings } from "../db/schema";
 import { eq, gte, and, isNull, or } from "drizzle-orm";
 
 interface VapidKeys {
@@ -74,7 +74,7 @@ export async function registerPushSubscription(sub: {
   // Delete any existing subscription with this endpoint to avoid duplicate errors
   try {
     await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, sub.endpoint));
-  } catch (e) {
+  } catch {
     // ignore
   }
 
@@ -100,8 +100,17 @@ export interface NotificationPayload {
   image?: string;
   url?: string;
   tag?: string;
-  data?: any;
+  data?: Record<string, unknown>;
 }
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+type PushErrorLike = {
+  statusCode?: number;
+  message?: string;
+};
 
 export async function sendPushToAll(payload: NotificationPayload) {
   initializeVapid();
@@ -143,14 +152,15 @@ export async function sendPushToAll(payload: NotificationPayload) {
         urgency: "high"
       });
       sent++;
-    } catch (err: any) {
-      console.warn(`Error sending push to ${sub.endpoint.slice(0, 30)}...:`, err.statusCode || err.message);
+    } catch (err: unknown) {
+      const pushError = err as PushErrorLike;
+      console.warn(`Error sending push to ${sub.endpoint.slice(0, 30)}...:`, pushError.statusCode || getErrorMessage(err));
       failed++;
       // If subscription is 404 or 410 (Gone), delete it
-      if (err.statusCode === 404 || err.statusCode === 410) {
+      if (pushError.statusCode === 404 || pushError.statusCode === 410) {
         try {
           await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
-        } catch (e) {
+        } catch {
           // ignore
         }
       }
@@ -189,8 +199,8 @@ export async function sendTestPush(endpoint?: string) {
           })
         );
         return { success: true, sent: 1 };
-      } catch (err: any) {
-        return { success: false, error: err.message };
+      } catch (err: unknown) {
+        return { success: false, error: getErrorMessage(err) };
       }
     }
   }
@@ -210,7 +220,7 @@ export async function notifyNewHighRelevanceArticles() {
         const parsed = parseInt(settingRow.value, 10);
         if (!isNaN(parsed)) threshold = parsed;
       }
-    } catch (e) {}
+    } catch {}
 
     const candidateArticles = await db
       .select()
@@ -252,7 +262,7 @@ export async function notifyNewHighRelevanceArticles() {
         .set({ isNotified: true })
         .where(eq(articles.id, article.id));
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error sending high relevance push notifications:", err);
   }
 }

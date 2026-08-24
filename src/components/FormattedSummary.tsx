@@ -35,14 +35,6 @@ export default function FormattedSummary({ summaryText, className = "" }: Format
   };
 
   // Structured breakdown if markers exist, or fallback parser
-  const hasShortLongSections =
-    summaryText.includes("⚡") ||
-    summaryText.includes("SINTESI RAPIDA") ||
-    summaryText.includes("QUADRO DETTAGLIATO") ||
-    summaryText.includes("###") ||
-    summaryText.includes("Riassunto Breve") ||
-    summaryText.includes("Riassunto Approfondito");
-
   const lines = summaryText.split("\n");
 
   return (

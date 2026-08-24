@@ -1,14 +1,37 @@
 ﻿import Parser from "rss-parser";
 import { db } from "../db";
 import { articles, rssFeeds, interests } from "../db/schema";
-import { eq, inArray, like, sql } from "drizzle-orm";
-import { processArticleWithAI, generateScraperConfig } from "./gemini";
+import { eq, sql } from "drizzle-orm";
+import { generateScraperConfig } from "./gemini";
 import { applyScraperConfig, type ScraperConfig } from "./scraper";
 import { extractDefaultTags } from "./tagExtractor";
 import { decodeResponseText, extractImageUrl, normalizeLink, stripHtml, cleanHtmlForAI } from "./rssTextUtils";
 import { scrapeSourceWithAdHocTransformer, ensureScraperConfigForFeed } from "./rssScraper";
 
 export { normalizeLink, ensureScraperConfigForFeed };
+
+type ParserItem = {
+  guid?: string;
+  id?: string;
+  link?: string;
+  title?: string;
+  contentEncoded?: string;
+  ["content:encoded"]?: string;
+  content?: string;
+  contentSnippet?: string;
+  pubDate?: string;
+  imageUrl?: string | null;
+  mediaContent?: Array<{ $?: { url?: string } }>;
+};
+
+type FeedTestSampleItem = {
+  title?: string;
+  link?: string;
+};
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 const DEFAULT_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -29,7 +52,7 @@ const parser = new Parser({
   }
 });
 
-export async function fetchFeedWithFallback(originalUrl: string, feedName: string): Promise<Parser.Output<{ [key: string]: any }> | null> {
+export async function fetchFeedWithFallback(originalUrl: string, feedName: string): Promise<Parser.Output<ParserItem> | null> {
   const url = originalUrl.trim();
   const candidateUrls = [url];
 
@@ -89,7 +112,7 @@ export async function fetchFeedWithFallback(originalUrl: string, feedName: strin
             success = true;
           }
         }
-      } catch (e) {
+      } catch {
         // Continue to curl fallback
       }
 
@@ -103,7 +126,7 @@ export async function fetchFeedWithFallback(originalUrl: string, feedName: strin
             xmlText = output;
             success = true;
           }
-        } catch (e) {
+        } catch {
           // Ignore curl errors
         }
       }
@@ -114,7 +137,7 @@ export async function fetchFeedWithFallback(originalUrl: string, feedName: strin
           return parsed;
         }
       }
-    } catch (err: any) {
+    } catch {
       // Continue to next candidate
     }
   }
@@ -128,7 +151,7 @@ export async function testFeedUrl(url: string): Promise<{
   isScrapeableHtml: boolean;
   detectedName?: string;
   itemCount?: number;
-  sampleItems?: any[];
+  sampleItems?: FeedTestSampleItem[];
   transformerCreated?: boolean;
   error?: string;
 }> {
@@ -143,7 +166,7 @@ export async function testFeedUrl(url: string): Promise<{
       if (response.ok) {
         text = await decodeResponseText(response);
       }
-    } catch (e) {}
+    } catch {}
 
     if (!text) {
       try {
@@ -151,7 +174,7 @@ export async function testFeedUrl(url: string): Promise<{
         const cmd = `curl -k -L -s -m 10 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/127.0.0.0 Safari/537.36" "${url}"`;
         const output = execSync(cmd, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 2 });
         text = output || "";
-      } catch (e) {}
+      } catch {}
     }
 
     if (!text || text.length < 50) {
@@ -176,8 +199,8 @@ export async function testFeedUrl(url: string): Promise<{
           }
         }
         return { isValidRss: false, isScrapeableHtml: false, transformerCreated: false, error: "Impossibile creare un trasformatore funzionante per questa pagina." };
-      } catch (e: any) {
-        return { isValidRss: false, isScrapeableHtml: false, transformerCreated: false, error: e.message || "Errore durante la creazione del trasformatore." };
+      } catch (e: unknown) {
+        return { isValidRss: false, isScrapeableHtml: false, transformerCreated: false, error: getErrorMessage(e) || "Errore durante la creazione del trasformatore." };
       }
     }
 
@@ -190,11 +213,11 @@ export async function testFeedUrl(url: string): Promise<{
         itemCount: parsed.items?.length,
         sampleItems: (parsed.items || []).slice(0, 3).map(i => ({ title: i.title, link: i.link }))
       };
-    } catch (e) {
+    } catch {
       return { isValidRss: false, isScrapeableHtml: text.length > 500, error: "La risposta non sembra un feed RSS valido." };
     }
-  } catch (err: any) {
-    return { isValidRss: false, isScrapeableHtml: false, error: err.message || "Errore sconosciuto durante il test." };
+  } catch (err: unknown) {
+    return { isValidRss: false, isScrapeableHtml: false, error: getErrorMessage(err) || "Errore sconosciuto durante il test." };
   }
 }
 
@@ -250,7 +273,7 @@ export async function fetchAllFeeds(onlyFeedIds?: number[]) {
   for (const feed of feeds) {
     console.log(`Processing feed: ${feed.name} (${feed.url})`);
     try {
-      let items: any[] = [];
+      let items: ParserItem[] = [];
       const parsedFeed = await fetchFeedWithFallback(feed.url, feed.name);
       
       if (parsedFeed) {
@@ -281,8 +304,8 @@ export async function fetchAllFeeds(onlyFeedIds?: number[]) {
           } else {
             console.log(`Ad-hoc transformer returned 0 articles for ${feed.name}`);
           }
-        } catch (scrapeErr: any) {
-          console.warn(`Ad-hoc transformer failed for ${feed.name}:`, scrapeErr.message || "Unknown error");
+        } catch (scrapeErr: unknown) {
+          console.warn(`Ad-hoc transformer failed for ${feed.name}:`, getErrorMessage(scrapeErr) || "Unknown error");
         }
       }
 
@@ -336,8 +359,8 @@ export async function fetchAllFeeds(onlyFeedIds?: number[]) {
         if (normLink) existingLinks.add(normLink);
         newArticlesInserted++;
       }
-    } catch (err: any) {
-      console.warn(`Warning processing feed ${feed.url}:`, err.message || "Unknown error");
+    } catch (err: unknown) {
+      console.warn(`Warning processing feed ${feed.url}:`, getErrorMessage(err) || "Unknown error");
     }
   }
 
@@ -346,8 +369,8 @@ export async function fetchAllFeeds(onlyFeedIds?: number[]) {
     try {
       const { notifyNewHighRelevanceArticles } = await import("./pushNotifications");
       await notifyNewHighRelevanceArticles();
-    } catch (e: any) {
-      console.warn("Could not send background high relevance notifications:", e.message || e);
+    } catch (e: unknown) {
+      console.warn("Could not send background high relevance notifications:", getErrorMessage(e));
     }
   }
 }
@@ -434,32 +457,32 @@ export async function seedInitialData() {
       );
     `);
 
-  } catch (err: any) {
-    console.error("Error creating initial tables:", err.message || err);
+  } catch (err: unknown) {
+    console.error("Error creating initial tables:", getErrorMessage(err));
   }
 
   // Ensure is_saved, is_notified and saved_at columns exist if table was created previously without them
   try {
     await db.run(sql`ALTER TABLE articles ADD COLUMN is_saved INTEGER DEFAULT 0`);
-  } catch (e) {}
+  } catch {}
   try {
     await db.run(sql`ALTER TABLE articles ADD COLUMN is_notified INTEGER DEFAULT 0`);
-  } catch (e) {}
+  } catch {}
   try {
     await db.run(sql`ALTER TABLE articles ADD COLUMN saved_at TEXT`);
-  } catch (e) {}
+  } catch {}
   try {
     await db.run(sql`ALTER TABLE articles ADD COLUMN read_at TEXT`);
-  } catch (e) {}
+  } catch {}
   try {
     await db.run(sql`ALTER TABLE rss_feeds ADD COLUMN shown_count INTEGER DEFAULT 0`);
-  } catch (e) {}
+  } catch {}
   try {
     await db.run(sql`ALTER TABLE rss_feeds ADD COLUMN scraper_config TEXT`);
-  } catch (e) {}
+  } catch {}
   try {
     await db.run(sql`ALTER TABLE rss_feeds ADD COLUMN scraper_fail_count INTEGER DEFAULT 0`);
-  } catch (e) {}
+  } catch {}
 
   // Check if we need to seed feeds
   try {
@@ -474,8 +497,8 @@ export async function seedInitialData() {
         }
       }
     }
-  } catch (err: any) {
-    console.error("Error seeding initial feeds:", err.message || err);
+  } catch (err: unknown) {
+    console.error("Error seeding initial feeds:", getErrorMessage(err));
   }
 
   // Populate default tags for any articles without tags
@@ -489,7 +512,7 @@ export async function seedInitialData() {
           .where(eq(articles.id, article.id));
       }
     }
-  } catch (err: any) {
-    console.error("Error updating untagged articles:", err.message || err);
+  } catch (err: unknown) {
+    console.error("Error updating untagged articles:", getErrorMessage(err));
   }
 }

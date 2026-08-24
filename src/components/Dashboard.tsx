@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BarChart2, BookOpen, Clock, Activity, Sparkles, TrendingUp } from "lucide-react";
+import { BarChart2, Sparkles, TrendingUp } from "lucide-react";
 import { 
   ResponsiveContainer, 
   BarChart, 
@@ -27,6 +27,10 @@ interface DashboardStats {
   removedWeeklyTopics?: WeeklyTopic[];
 }
 
+type DashboardSource = {
+  name: string;
+};
+
 const BAR_COLORS = [
   "#6366f1", // indigo-500
   "#8b5cf6", // violet-500
@@ -51,7 +55,7 @@ export default function Dashboard() {
         if (data && typeof data === 'object' && 'readCount' in data) {
           const topSources = Array.isArray(data.topSources) ? data.topSources : [];
           const removedSources = Array.isArray(data.removedSources) ? data.removedSources : [];
-          registerSourceNames([...topSources, ...removedSources].map((s: any) => s.name));
+          registerSourceNames([...topSources, ...removedSources].map((s: DashboardSource) => s.name));
           setStats({
             readCount: Number(data.readCount) || 0,
             unreadCount: Number(data.unreadCount) || 0,

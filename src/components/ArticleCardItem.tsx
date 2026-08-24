@@ -4,15 +4,10 @@ import { it } from "date-fns/locale";
 import { Article } from "../types";
 import { getSourceAccent, getSourceInitial, getSourceFaviconUrl } from "../lib/sourceStyle";
 import { 
-  ExternalLink, 
-  CheckCircle, 
   Sparkles, 
   EyeOff, 
-  ShieldMinus, 
   Share2, 
-  CheckCheck, 
   RotateCcw,
-  BookOpen,
   Bookmark,
   BookmarkCheck,
   Info
@@ -36,7 +31,6 @@ interface ArticleCardItemProps {
 
 export default function ArticleCardItem({
   article,
-  isTagExcluded,
   selectedTag,
   onTagClick,
   onOpenSummary,
@@ -305,7 +299,6 @@ export default function ArticleCardItem({
           {article.aiTags && article.aiTags.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 mb-3.5">
               {article.aiTags.map((tag, idx) => {
-                const isExcluded = isTagExcluded(tag);
                 const isSelected = selectedTag === tag;
                 return (
                   <button

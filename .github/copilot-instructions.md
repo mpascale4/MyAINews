@@ -272,9 +272,12 @@ app MP:
   `npm run gen:favicon`), vedi `mp-app-kit/BRANDING.md`.
 - Regole di stile del codice (dimensioni file/funzione, complessità, `any`,
   DRY) definite in `mp-app-kit/CODE_STYLE.md`: applicarle a tutto il codice
-  nuovo; il codice esistente che le viola resta come debito tecnico noto,
-  da rifattorizzare solo in un task dedicato separato (rischio regressioni
-  troppo alto per farlo incidentalmente).
+  nuovo. I file storicamente sovradimensionati (`ArticlesList.tsx`,
+  `SettingsPanel.tsx`, `ReadLaterPage.tsx`, `rss.ts`, `gemini.ts`) sono stati
+  rifattorizzati in moduli/componenti più piccoli e mirati; i warning ESLint
+  residui (complessità, `max-lines-per-function`, `max-depth`, `any` non
+  ancora tipizzati) sono debito tecnico noto e vanno ridotti gradualmente,
+  senza introdurre regressioni comportamentali.
 
 ## Icona header = favicon (Mandatory)
 

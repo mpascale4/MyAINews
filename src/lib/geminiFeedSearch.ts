@@ -1,6 +1,16 @@
 ﻿import type { AIFeedSuggestion } from "./geminiFeedGeneration";
 import { getGemini } from "./gemini";
 
+type FeedSearchCandidate = {
+  name?: string;
+  url?: string;
+  type?: string;
+  verified?: boolean;
+  confidence?: number;
+  reason?: string;
+  category?: string;
+};
+
 // Static, manually-verified RSS feeds for common Italian news categories, used as a
 // richer fallback when the AI (GEMINI_API_KEY) is unavailable, so common searches like
 // "sport" or "tecnologia" don't return only a single generic Google News feed.
@@ -134,7 +144,7 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON nel formato:
     if (response.text) {
       const parsed = JSON.parse(response.text);
       if (Array.isArray(parsed.feeds) && parsed.feeds.length > 0) {
-        const aiResults: AIFeedSuggestion[] = parsed.feeds.map((f: any) => ({
+        const aiResults: AIFeedSuggestion[] = parsed.feeds.map((f: FeedSearchCandidate) => ({
           name: String(f.name || cleanKeyword),
           url: String(f.url || "").trim(),
           type: f.type || 'rss',
@@ -142,7 +152,7 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON nel formato:
           confidence: typeof f.confidence === 'number' ? f.confidence : 0.0,
           reason: String(f.reason || `Feed trovato per "${cleanKeyword}"`),
           category: String(f.category || "Generale")
-        })).filter((f: any) => f.url && f.url.startsWith("http"));
+        })).filter((f: AIFeedSuggestion) => f.url && f.url.startsWith("http"));
 
         // Prepend our manually-verified curated feeds (e.g. Serie A highlights) when the
         // keyword matches a known category, so a real verified source is always offered
