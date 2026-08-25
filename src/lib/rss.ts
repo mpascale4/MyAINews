@@ -323,17 +323,26 @@ async function createBaseTables() {
   await createAppSettingsTable();
 }
 
+function normalizePubDate(pubDate: string | undefined): string {
+  const parsed = pubDate ? new Date(pubDate) : null;
+  return parsed && !isNaN(parsed.getTime()) ? parsed.toISOString() : new Date().toISOString();
+}
+
+function extractTitleAndContent(item: ParserItem): { title: string; content: string } {
+  const title = stripHtml(item.title || "No Title").trim() || "No Title";
+  const rawContent = item.contentEncoded || item['content:encoded'] || item.content || item.contentSnippet || "";
+  const content = stripHtml(rawContent).trim();
+  return { title, content };
+}
+
 function prepareArticle(item: ParserItem, feedName: string, userInterests: InterestRow[]): PreparedArticle | null {
   const guid = item.guid || item.id || item.link;
   if (!guid) {
     return null;
   }
 
-  const title = stripHtml(item.title || "No Title").trim() || "No Title";
   const link = item.link || "";
-  const rawContent = item.contentEncoded || item['content:encoded'] || item.content || item.contentSnippet || "";
-  const content = stripHtml(rawContent).trim();
-  const parsedPubDate = item.pubDate ? new Date(item.pubDate) : null;
+  const { title, content } = extractTitleAndContent(item);
   const defaultTags = extractDefaultTags(title, content, feedName);
 
   return {
@@ -343,7 +352,7 @@ function prepareArticle(item: ParserItem, feedName: string, userInterests: Inter
     normTitle: normalizeExistingTitle(title),
     normLink: normalizeLink(link),
     content,
-    pubDate: parsedPubDate && !isNaN(parsedPubDate.getTime()) ? parsedPubDate.toISOString() : new Date().toISOString(),
+    pubDate: normalizePubDate(item.pubDate),
     imageUrl: item.imageUrl !== undefined ? item.imageUrl : extractImageUrl(item),
     defaultTags,
     relevance: calculateFastRelevance(title, content, defaultTags, userInterests),
@@ -539,39 +548,48 @@ export async function testFeedUrl(url: string): Promise<{
 }
 
 
-function calculateFastRelevance(title: string, content: string, tags: string[], userInterests: { keyword: string, type: string, weight: number }[]): number {
-  if (!userInterests || userInterests.length === 0) return 50;
-  
-  const text = `${title} ${content} ${tags.join(" ")}`.toLowerCase();
+function computeInterestMatches(
+  text: string,
+  userInterests: { keyword: string, type: string, weight: number }[]
+): { score: number; matchesPositive: number; matchesNegative: number } {
   let score = 50;
   let matchesPositive = 0;
   let matchesNegative = 0;
 
   for (const item of userInterests) {
     const kw = item.keyword.trim().toLowerCase();
-    if (!kw) continue;
-    if (text.includes(kw)) {
-      if (item.type === 'positive') {
-        matchesPositive++;
-        score += Math.round(20 * (item.weight || 1.0));
-      } else if (item.type === 'negative') {
-        matchesNegative++;
-        score -= Math.round(35 * (item.weight || 1.0));
-      }
+    if (!kw || !text.includes(kw)) continue;
+
+    if (item.type === 'positive') {
+      matchesPositive++;
+      score += Math.round(20 * (item.weight || 1.0));
+    } else if (item.type === 'negative') {
+      matchesNegative++;
+      score -= Math.round(35 * (item.weight || 1.0));
     }
   }
+
+  return { score, matchesPositive, matchesNegative };
+}
+
+function calculateFastRelevance(title: string, content: string, tags: string[], userInterests: { keyword: string, type: string, weight: number }[]): number {
+  if (!userInterests || userInterests.length === 0) return 50;
+
+  const text = `${title} ${content} ${tags.join(" ")}`.toLowerCase();
+  const { score, matchesPositive, matchesNegative } = computeInterestMatches(text, userInterests);
 
   if (matchesNegative > 0 && matchesPositive === 0) {
     return Math.max(0, Math.min(25, score));
   }
 
+  let finalScore = score;
   if (matchesPositive >= 2) {
-    score = Math.max(score, 85);
+    finalScore = Math.max(finalScore, 85);
   } else if (matchesPositive === 1) {
-    score = Math.max(score, 75);
+    finalScore = Math.max(finalScore, 75);
   }
 
-  return Math.max(0, Math.min(100, score));
+  return Math.max(0, Math.min(100, finalScore));
 }
 
 export async function fetchAllFeeds(onlyFeedIds?: number[]) {
