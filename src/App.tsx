@@ -24,22 +24,16 @@ const getTodayDateString = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 
-export default function App() {
-  const { theme, toggleTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState("home");
+function useAppInitialization() {
   const [notifications, setNotifications] = useState<string[]>([]);
-  const [onboardingComplete, setOnboardingComplete] = useState<boolean>(true); // Default to true, let useEffect override
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Daily Feed auto-refresh: silently trigger a fetch on first app open of the day (no popup).
 
   useEffect(() => {
-    // Check onboarding status
     const isComplete = localStorage.getItem("onboardingComplete");
     if (!isComplete) {
       setOnboardingComplete(false);
     } else {
-      // First app open of the day: refresh feeds silently in the background, no popup.
       const today = getTodayDateString();
       const lastPromptDate = localStorage.getItem("lastDailyFeedPromptDate");
       if (lastPromptDate !== today) {
@@ -51,7 +45,6 @@ export default function App() {
     }
     setIsLoading(false);
 
-    // Check for high relevance articles
     fetch('/api/articles?filter=AI')
       .then(res => {
         if (!res.ok) return [];
@@ -70,6 +63,189 @@ export default function App() {
       });
   }, []);
 
+  return { notifications, onboardingComplete, isLoading, setOnboardingComplete };
+}
+
+function getHeaderTitle(activeTab: string): string {
+  if (activeTab === "home") return "Le Tue Notizie";
+  if (activeTab === "saved") return "Leggi Dopo";
+  if (activeTab === "dashboard") return "Statistiche";
+  if (activeTab === "trash") return "Cestino";
+  return "Sorgenti Feed";
+}
+
+interface NavButtonProps {
+  activeTab: string;
+  targetTab: string;
+  icon: React.ReactNode;
+  label: string;
+  onTabChange: (tab: string) => void;
+}
+
+function DesktopNavButton({ activeTab, targetTab, icon, label, onTabChange }: NavButtonProps) {
+  return (
+    <button
+      onClick={() => onTabChange(targetTab)}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer ${
+        activeTab === targetTab
+          ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-medium"
+          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+interface DesktopSidebarProps {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+  theme: string;
+  toggleTheme: () => void;
+}
+
+function DesktopSidebar({ activeTab, onTabChange, theme, toggleTheme }: DesktopSidebarProps) {
+  return (
+    <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-colors">
+      <div className="p-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+          <BookOpen className="w-6 h-6" />
+          MyNewsAI
+        </h1>
+      </div>
+      <nav className="flex-1 px-4 space-y-2">
+        <DesktopNavButton activeTab={activeTab} targetTab="home" icon={<Home className="w-5 h-5" />} label="Notizie" onTabChange={onTabChange} />
+        <DesktopNavButton activeTab={activeTab} targetTab="saved" icon={<Bookmark className="w-5 h-5" />} label="Leggi dopo" onTabChange={onTabChange} />
+        <DesktopNavButton activeTab={activeTab} targetTab="dashboard" icon={<BarChart2 className="w-5 h-5" />} label="Dashboard" onTabChange={onTabChange} />
+        <DesktopNavButton activeTab={activeTab} targetTab="trash" icon={<Trash2 className="w-5 h-5" />} label="Cestino" onTabChange={onTabChange} />
+        <DesktopNavButton activeTab={activeTab} targetTab="settings" icon={<Settings className="w-5 h-5" />} label="Impostazioni" onTabChange={onTabChange} />
+      </nav>
+      <div className="p-4 border-t border-slate-200 dark:border-slate-800">
+        <button
+          onClick={toggleTheme}
+          className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+          title={theme === "dark" ? "Passa al tema chiaro" : "Passa al tema scuro"}
+        >
+          <span className="flex items-center gap-2.5">
+            {theme === "dark" ? (
+              <Moon className="w-4 h-4 text-indigo-400" />
+            ) : (
+              <Sun className="w-4 h-4 text-amber-500" />
+            )}
+            <span>{theme === "dark" ? "Tema Scuro" : "Tema Chiaro"}</span>
+          </span>
+          <span className="text-[11px] px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
+            {theme === "dark" ? "Scuro" : "Chiaro"}
+          </span>
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+interface MobileNavButtonProps {
+  activeTab: string;
+  targetTab: string;
+  icon: React.ReactNode;
+  label: string;
+  onTabChange: (tab: string) => void;
+}
+
+function MobileNavButton({ activeTab, targetTab, icon, label, onTabChange }: MobileNavButtonProps) {
+  return (
+    <button
+      onClick={() => onTabChange(targetTab)}
+      className={`flex flex-col items-center justify-center w-full h-full space-y-1 cursor-pointer ${
+        activeTab === targetTab ? "text-indigo-600 dark:text-indigo-400 font-semibold" : "text-slate-500 dark:text-slate-400"
+      }`}
+    >
+      {icon}
+      <span className="text-[10px] font-medium">{label}</span>
+    </button>
+  );
+}
+
+interface MobileNavigationProps {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+}
+
+function MobileNavigation({ activeTab, onTabChange }: MobileNavigationProps) {
+  return (
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center h-16 z-50 pb-safe transition-colors">
+      <MobileNavButton activeTab={activeTab} targetTab="home" icon={<Home className="w-5 h-5" />} label="Notizie" onTabChange={onTabChange} />
+      <MobileNavButton activeTab={activeTab} targetTab="saved" icon={<Bookmark className="w-5 h-5" />} label="Leggi dopo" onTabChange={onTabChange} />
+      <MobileNavButton activeTab={activeTab} targetTab="dashboard" icon={<BarChart2 className="w-5 h-5" />} label="Dashboard" onTabChange={onTabChange} />
+      <MobileNavButton activeTab={activeTab} targetTab="trash" icon={<Trash2 className="w-5 h-5" />} label="Cestino" onTabChange={onTabChange} />
+      <MobileNavButton activeTab={activeTab} targetTab="settings" icon={<Settings className="w-5 h-5" />} label="Profilo" onTabChange={onTabChange} />
+    </nav>
+  );
+}
+
+interface MainContentProps {
+  activeTab: string;
+  onNavigateHome: () => void;
+}
+
+function MainContent({ activeTab, onNavigateHome }: MainContentProps) {
+  return (
+    <div id="main-scroll-container" className="flex-1 overflow-y-auto overscroll-y-none p-4 md:p-8 pb-24 md:pb-8">
+      {activeTab === "home" && <ArticlesList />}
+      {activeTab === "saved" && <ReadLaterPage onNavigateHome={onNavigateHome} />}
+      {activeTab === "dashboard" && <Dashboard />}
+      {activeTab === "trash" && <TrashPage />}
+      {activeTab === "settings" && <SettingsPanel />}
+    </div>
+  );
+}
+
+interface AppHeaderProps {
+  activeTab: string;
+  notifications: string[];
+  theme: string;
+  toggleTheme: () => void;
+}
+
+function AppHeader({ activeTab, notifications, theme, toggleTheme }: AppHeaderProps) {
+  return (
+    <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 h-16 flex items-center justify-between px-4 md:px-8 shrink-0 transition-colors">
+       <div className="flex items-center gap-3">
+         <img src="/icon.svg" alt="" className="h-8 w-8 rounded-xl shadow-sm hidden sm:block" />
+         <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+            {getHeaderTitle(activeTab)}
+         </h2>
+       </div>
+       <div className="flex items-center gap-3">
+          {notifications.length > 0 && (
+             <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/50 px-3 py-1.5 rounded-full text-xs font-medium">
+                <Bell className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{notifications[0]}</span>
+                <span className="sm:hidden">Notizie</span>
+             </div>
+          )}
+          <button
+            onClick={toggleTheme}
+            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-2xs"
+            title={theme === "dark" ? "Attiva tema chiaro" : "Attiva tema scuro"}
+            aria-label="Toggle theme"
+          >
+            {theme === "dark" ? (
+              <Sun className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4 text-slate-700" />
+            )}
+          </button>
+       </div>
+    </header>
+  );
+}
+
+export default function App() {
+  const { theme, toggleTheme } = useTheme();
+  const [activeTab, setActiveTab] = useState("home");
+  const { notifications, onboardingComplete, isLoading, setOnboardingComplete } = useAppInitialization();
+
   if (isLoading) {
     return <div className="h-screen bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 flex items-center justify-center">Caricamento...</div>;
   }
@@ -87,195 +263,12 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
-      {/* Sidebar (Desktop Only) */}
-      <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-colors">
-        <div className="p-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-            <BookOpen className="w-6 h-6" />
-            MyNewsAI
-          </h1>
-        </div>
-        <nav className="flex-1 px-4 space-y-2">
-          <button
-            onClick={() => setActiveTab("home")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer ${
-              activeTab === "home"
-                ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-medium"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-            }`}
-          >
-            <Home className="w-5 h-5" />
-            Notizie
-          </button>
-          <button
-            onClick={() => setActiveTab("saved")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer ${
-              activeTab === "saved"
-                ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-medium"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-            }`}
-          >
-            <Bookmark className="w-5 h-5" />
-            Leggi dopo
-          </button>
-          <button
-            onClick={() => setActiveTab("dashboard")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer ${
-              activeTab === "dashboard"
-                ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-medium"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-            }`}
-          >
-            <BarChart2 className="w-5 h-5" />
-            Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab("trash")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer ${
-              activeTab === "trash"
-                ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-medium"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-            }`}
-          >
-            <Trash2 className="w-5 h-5" />
-            Cestino
-          </button>
-          <button
-            onClick={() => setActiveTab("settings")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer ${
-              activeTab === "settings"
-                ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-medium"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-            }`}
-          >
-            <Settings className="w-5 h-5" />
-            Impostazioni
-          </button>
-        </nav>
-
-        {/* Sidebar Footer with Theme Toggle */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800">
-          <button
-            onClick={toggleTheme}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
-            title={theme === "dark" ? "Passa al tema chiaro" : "Passa al tema scuro"}
-          >
-            <span className="flex items-center gap-2.5">
-              {theme === "dark" ? (
-                <Moon className="w-4 h-4 text-indigo-400" />
-              ) : (
-                <Sun className="w-4 h-4 text-amber-500" />
-              )}
-              <span>{theme === "dark" ? "Tema Scuro" : "Tema Chiaro"}</span>
-            </span>
-            <span className="text-[11px] px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
-              {theme === "dark" ? "Scuro" : "Chiaro"}
-            </span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
+      <DesktopSidebar activeTab={activeTab} onTabChange={setActiveTab} theme={theme} toggleTheme={toggleTheme} />
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors">
-        {/* Header */}
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 h-16 flex items-center justify-between px-4 md:px-8 shrink-0 transition-colors">
-           <div className="flex items-center gap-3">
-             <img src="/icon.svg" alt="" className="h-8 w-8 rounded-xl shadow-sm hidden sm:block" />
-             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                {activeTab === "home" 
-                  ? "Le Tue Notizie" 
-                  : activeTab === "saved" 
-                  ? "Leggi Dopo" 
-                  : activeTab === "dashboard" 
-                  ? "Statistiche" 
-                  : activeTab === "trash"
-                  ? "Cestino"
-                  : "Sorgenti Feed"}
-             </h2>
-           </div>
-           <div className="flex items-center gap-3">
-              {notifications.length > 0 && (
-                 <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/50 px-3 py-1.5 rounded-full text-xs font-medium">
-                    <Bell className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{notifications[0]}</span>
-                    <span className="sm:hidden">Notizie</span>
-                 </div>
-              )}
-
-              {/* Theme Toggle Button in Header */}
-              <button
-                onClick={toggleTheme}
-                className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-2xs"
-                title={theme === "dark" ? "Attiva tema chiaro" : "Attiva tema scuro"}
-                aria-label="Toggle theme"
-              >
-                {theme === "dark" ? (
-                  <Sun className="w-4 h-4 text-amber-400" />
-                ) : (
-                  <Moon className="w-4 h-4 text-slate-700" />
-                )}
-              </button>
-           </div>
-        </header>
-        
-        {/* Scrollable Area */}
-        <div id="main-scroll-container" className="flex-1 overflow-y-auto overscroll-y-none p-4 md:p-8 pb-24 md:pb-8">
-           {activeTab === "home" && <ArticlesList />}
-           {activeTab === "saved" && <ReadLaterPage onNavigateHome={() => setActiveTab("home")} />}
-           {activeTab === "dashboard" && <Dashboard />}
-           {activeTab === "trash" && <TrashPage />}
-           {activeTab === "settings" && <SettingsPanel />}
-        </div>
+        <AppHeader activeTab={activeTab} notifications={notifications} theme={theme} toggleTheme={toggleTheme} />
+        <MainContent activeTab={activeTab} onNavigateHome={() => setActiveTab("home")} />
       </main>
-
-      {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center h-16 z-50 pb-safe transition-colors">
-        <button
-          onClick={() => setActiveTab("home")}
-          className={`flex flex-col items-center justify-center w-full h-full space-y-1 cursor-pointer ${
-            activeTab === "home" ? "text-indigo-600 dark:text-indigo-400 font-semibold" : "text-slate-500 dark:text-slate-400"
-          }`}
-        >
-          <Home className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Notizie</span>
-        </button>
-        <button
-          onClick={() => setActiveTab("saved")}
-          className={`flex flex-col items-center justify-center w-full h-full space-y-1 cursor-pointer ${
-            activeTab === "saved" ? "text-indigo-600 dark:text-indigo-400 font-semibold" : "text-slate-500 dark:text-slate-400"
-          }`}
-        >
-          <Bookmark className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Leggi dopo</span>
-        </button>
-        <button
-          onClick={() => setActiveTab("dashboard")}
-          className={`flex flex-col items-center justify-center w-full h-full space-y-1 cursor-pointer ${
-            activeTab === "dashboard" ? "text-indigo-600 dark:text-indigo-400 font-semibold" : "text-slate-500 dark:text-slate-400"
-          }`}
-        >
-          <BarChart2 className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Dashboard</span>
-        </button>
-        <button
-          onClick={() => setActiveTab("trash")}
-          className={`flex flex-col items-center justify-center w-full h-full space-y-1 cursor-pointer ${
-            activeTab === "trash" ? "text-indigo-600 dark:text-indigo-400 font-semibold" : "text-slate-500 dark:text-slate-400"
-          }`}
-        >
-          <Trash2 className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Cestino</span>
-        </button>
-        <button
-          onClick={() => setActiveTab("settings")}
-          className={`flex flex-col items-center justify-center w-full h-full space-y-1 cursor-pointer ${
-            activeTab === "settings" ? "text-indigo-600 dark:text-indigo-400 font-semibold" : "text-slate-500 dark:text-slate-400"
-          }`}
-        >
-          <Settings className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Profilo</span>
-        </button>
-      </nav>
+      <MobileNavigation activeTab={activeTab} onTabChange={setActiveTab} />
       <MpBranding />
     </div>
   );
