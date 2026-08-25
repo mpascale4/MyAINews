@@ -14,10 +14,44 @@ import ArticleCardItem from "./ArticleCardItem";
 import ConfirmOverlay from "./ConfirmOverlay";
 import ArticleInfoModal from "./ArticleInfoModal";
 import ReadLaterSummaryModal from "./ReadLaterSummaryModal";
+import { shareArticleHelper } from "./shareArticleHelper";
 
-type ShareErrorWithName = {
-  name?: string;
-};
+// Helper: check if article matches search query
+function matchesSearchQuery(article: Article, query: string): boolean {
+  const q = query.toLowerCase();
+  const matchTitle = article.title.toLowerCase().includes(q);
+  const matchSource = (article.source || "").toLowerCase().includes(q);
+  const matchTags = (article.aiTags || []).some(t => t.toLowerCase().includes(q));
+  return matchTitle || matchSource || matchTags;
+}
+
+// Helper: check if article matches status filter
+function matchesStatusFilter(article: Article, statusFilter: "all" | "unread" | "read"): boolean {
+  if (statusFilter === "unread") return !article.isRead;
+  if (statusFilter === "read") return article.isRead;
+  return true;
+}
+
+// Helper: check if article matches tag filter
+function matchesTagFilter(article: Article, selectedTag: string | null): boolean {
+  if (!selectedTag) return true;
+  return !!article.aiTags && article.aiTags.includes(selectedTag);
+}
+
+// Helper: filter articles by search, status, and tag
+function filterArticles(
+  articles: Article[],
+  searchQuery: string,
+  statusFilter: "all" | "unread" | "read",
+  selectedTag: string | null
+): Article[] {
+  return articles.filter(article => {
+    if (searchQuery.trim() && !matchesSearchQuery(article, searchQuery)) return false;
+    if (!matchesStatusFilter(article, statusFilter)) return false;
+    if (!matchesTagFilter(article, selectedTag)) return false;
+    return true;
+  });
+}
 
 type HiddenArticlePlaceholderProps = {
   article: Article;
@@ -217,38 +251,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
 
   const handleShareArticle = async (article: Article, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-
-    const title = article.title || "Notizia FeedAI";
-    const text = article.aiSummary 
-      ? `${title}\n\nRiassunto AI:\n${article.aiSummary}\n\n` 
-      : `${title}\n\n`;
-    const url = article.link || window.location.href;
-
-    const shareData = {
-      title,
-      text,
-      url,
-    };
-
-    if (navigator.share && typeof navigator.canShare === 'function' && navigator.canShare(shareData)) {
-      try {
-        await navigator.share(shareData);
-        setFeedbackMessage("Notizia condivisa!");
-        setTimeout(() => setFeedbackMessage(null), 4000);
-        return;
-      } catch (err: unknown) {
-        if ((err as ShareErrorWithName).name === 'AbortError') return;
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(`${title}\n${url}`);
-      setFeedbackMessage("Link copiato negli appunti!");
-      setTimeout(() => setFeedbackMessage(null), 4000);
-    } catch {
-      setFeedbackMessage("Impossibile copiare il link.");
-      setTimeout(() => setFeedbackMessage(null), 4000);
-    }
+    await shareArticleHelper(article, setFeedbackMessage, "Notizia condivisa!");
   };
 
   const autoGenerateSummary = async (id: number) => {
@@ -322,25 +325,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
   }, [articles]);
 
   // Filtered articles
-  const filteredArticles = articles.filter(article => {
-    // Search query filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchTitle = article.title.toLowerCase().includes(q);
-      const matchSource = (article.source || "").toLowerCase().includes(q);
-      const matchTags = (article.aiTags || []).some(t => t.toLowerCase().includes(q));
-      if (!matchTitle && !matchSource && !matchTags) return false;
-    }
-
-    // Status filter
-    if (statusFilter === "unread" && article.isRead) return false;
-    if (statusFilter === "read" && !article.isRead) return false;
-
-    // Tag filter
-    if (selectedTag && (!article.aiTags || !article.aiTags.includes(selectedTag))) return false;
-
-    return true;
-  });
+  const filteredArticles = filterArticles(articles, searchQuery, statusFilter, selectedTag);
 
   const unreadCount = articles.filter(a => !a.isRead).length;
 

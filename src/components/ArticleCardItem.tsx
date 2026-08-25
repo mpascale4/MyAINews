@@ -3,15 +3,7 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Article } from "../types";
 import { getSourceAccent, getSourceInitial, getSourceFaviconUrl } from "../lib/sourceStyle";
-import { 
-  Sparkles, 
-  EyeOff, 
-  Share2, 
-  RotateCcw,
-  Bookmark,
-  BookmarkCheck,
-  Info
-} from "lucide-react";
+import { Sparkles, EyeOff, Share2, Info, Bookmark, BookmarkCheck, RotateCcw } from "lucide-react";
 
 interface ArticleCardItemProps {
   key?: React.Key;
