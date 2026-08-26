@@ -1,4 +1,5 @@
 import { Info, X } from "lucide-react";
+import { useSwipeToDismiss } from "@mp/app-kit";
 import type { Article } from "../types";
 
 type ArticleInfoModalProps = {
@@ -7,9 +8,18 @@ type ArticleInfoModalProps = {
 };
 
 export default function ArticleInfoModal({ article, onClose }: ArticleInfoModalProps) {
+  // Swipe-down dismiss is a shortcut only: the header "X" button remains
+  // the primary, always-visible way to dismiss this modal.
+  const { offset, isDragging, handlers } = useSwipeToDismiss({ onDismiss: onClose });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs" onClick={onClose}>
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900" onClick={(event) => event.stopPropagation()}>
+      <div
+        className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+        style={{ transform: `translateY(${Math.max(0, offset)}px)`, transition: isDragging ? "none" : "transform 0.2s ease" }}
+        onClick={(event) => event.stopPropagation()}
+        {...handlers}
+      >
         <div className="flex items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
           <div className="flex items-center gap-2 text-base font-bold text-indigo-600 dark:text-indigo-400">
             <Info className="h-5 w-5" />

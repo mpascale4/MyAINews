@@ -1,5 +1,6 @@
 import React from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
+import { useSwipeToDismiss } from "@mp/app-kit";
 
 interface ConfirmOverlayProps {
   isOpen: boolean;
@@ -96,6 +97,9 @@ export default function ConfirmOverlay({
   if (!isOpen) return null;
 
   const accentColor = danger ? "rose" : "indigo";
+  // Swipe-down dismiss acts as cancel — a shortcut only, the Annulla
+  // button remains the primary, always-visible way to dismiss.
+  const { offset, isDragging, handlers } = useSwipeToDismiss({ onDismiss: onCancel, disabled: isConfirming });
 
   return (
     <div
@@ -106,7 +110,9 @@ export default function ConfirmOverlay({
     >
       <div
         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200"
+        style={{ transform: `translateY(${Math.max(0, offset)}px)`, transition: isDragging ? "none" : "transform 0.2s ease" }}
         onClick={(e) => e.stopPropagation()}
+        {...handlers}
       >
         <OverlayHeader danger={danger} title={title} />
         <div className="text-sm text-slate-600 dark:text-slate-400 mb-5">
