@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { ExternalLink, Share2, X } from "lucide-react";
+import { Share2, X } from "lucide-react";
 import type { Article } from "../types";
 
 type ArticleSummaryModalHeaderProps = {
@@ -26,9 +26,6 @@ export default function ArticleSummaryModalHeader({ article, onShare, onClose }:
         </p>
       </div>
       <div className="flex items-center gap-1">
-        <a href={article.link} target="_blank" rel="noopener noreferrer" className="rounded-full p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-300">
-          <ExternalLink className="h-5 w-5" />
-        </a>
         <button type="button" onClick={() => onShare(article)} className="cursor-pointer rounded-full p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-300">
           <Share2 className="h-5 w-5" />
         </button>

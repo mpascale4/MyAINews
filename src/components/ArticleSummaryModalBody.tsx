@@ -1,4 +1,4 @@
-import { ExternalLink, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import type { Article } from "../types";
 import FormattedSummary from "./FormattedSummary";
 
@@ -24,13 +24,15 @@ export default function ArticleSummaryModalBody({ article, isRegenerating, summa
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-lg font-bold leading-snug text-slate-900 dark:text-slate-100">{article.title}</h3>
-        <a href={article.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700">
-          Apri articolo
-          <ExternalLink className="h-4 w-4" />
-        </a>
-      </div>
+      <a
+        href={article.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Apri l'articolo originale"
+        className="block rounded-lg text-lg font-bold leading-snug text-slate-900 transition-colors hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-100 dark:hover:text-indigo-400"
+      >
+        {article.title}
+      </a>
       <FormattedSummary summaryText={article.aiSummary || ""} />
     </div>
   );
