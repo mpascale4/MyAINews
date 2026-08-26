@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import type { MouseEvent } from "react";
-import { ExternalLink, Info, Share2, Sparkles } from "lucide-react";
+import { Info, Share2, Sparkles } from "lucide-react";
 import type { Article } from "../types";
 import { getSourceAccent, getSourceFaviconUrl, getSourceInitial } from "../lib/sourceStyle";
 
@@ -44,10 +44,6 @@ function ArticleActions({ article, onOpenSummary, onOpenInfo }: { article: Artic
         Riassunto AI
       </button>
       {onOpenInfo ? <button type="button" onClick={() => onOpenInfo(article)} className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"><Info className="h-4 w-4" />Info</button> : null}
-      <a href={article.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
-        <ExternalLink className="h-4 w-4" />
-        Apri fonte
-      </a>
     </div>
   );
 }
@@ -59,8 +55,10 @@ export function ArticleCardBody({ article, onShare, onOpenSummary, onOpenInfo }:
       <div className="flex h-full flex-col p-5 pt-0">
         {article.imageUrl ? <img src={article.imageUrl} alt="" className="mb-4 h-48 w-full rounded-2xl object-cover" /> : null}
         <ArticleActions article={article} onOpenSummary={onOpenSummary} onOpenInfo={onOpenInfo} />
-        <h3 className="text-lg font-bold leading-tight text-slate-900 dark:text-slate-100">{article.title}</h3>
-        <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{article.contentSnippet || "Anteprima non disponibile."}</p>
+        <a href={article.link} target="_blank" rel="noopener noreferrer" className="cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" title="Apri la fonte originale">
+          <h3 className="text-lg font-bold leading-tight text-slate-900 transition-colors hover:text-indigo-600 dark:text-slate-100 dark:hover:text-indigo-400">{article.title}</h3>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{article.contentSnippet || "Anteprima non disponibile."}</p>
+        </a>
       </div>
     </article>
   );
