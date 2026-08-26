@@ -1,43 +1,28 @@
-export interface Article {
-  id: number;
+export type Feed = {
+  url: string;
+  name: string;
+};
+
+export type SuggestedFeed = Feed & {
+  reason?: string;
+  category?: string;
+};
+
+export type Article = {
   guid: string;
   title: string;
   link: string;
-  content: string | null;
+  content: string;
+  contentSnippet: string;
   pubDate: string | null;
-  source: string | null;
+  source: string;
   imageUrl: string | null;
-  aiSummary: string | null;
-  aiTags: string[] | null;
-  aiRelevance: number;
-  isRead: boolean;
-  isHidden: boolean;
-  isSaved?: boolean;
-  savedAt?: string | null;
-  readAt: string | null;
-  hiddenAt?: string | null;
-  createdAt: string;
-}
+  aiSummary?: string | null;
+};
 
-export interface Interest {
-  id: number;
-  keyword: string;
-  type: 'positive' | 'negative';
-  weight: number;
-}
-
-export interface Feed {
-  id: number;
-  url: string;
-  name: string;
-  isManual?: boolean;
-  addedVia?: string | null;
-}
-
-export interface SuggestedFeed {
-  name: string;
-  url: string;
-  reason?: string;
-  category?: string;
-  isNew?: boolean;
-}
+export type FeedFetchResult = {
+  feed: Feed;
+  articles: Article[];
+  error?: string;
+  usedScraper?: boolean;
+};
