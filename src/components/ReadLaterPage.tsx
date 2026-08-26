@@ -74,7 +74,7 @@ function HiddenArticlePlaceholder({ article, onUndo }: HiddenArticlePlaceholderP
       <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
       
       <div className="space-y-4">
-        <div className="flex items-center gap-2.5 text-indigo-400 font-bold uppercase tracking-wider text-[11px]">
+        <div className="flex items-center gap-2.5 text-indigo-400 font-bold uppercase tracking-wider text-sm">
           <EyeOff className="w-4 h-4" />
           <span>Notizia Nascosta</span>
         </div>
@@ -83,7 +83,7 @@ function HiddenArticlePlaceholder({ article, onUndo }: HiddenArticlePlaceholderP
           <p className="text-sm font-bold leading-snug line-clamp-3 text-slate-100">
             {article.title}
           </p>
-          <p className="text-xs text-slate-400">
+          <p className="text-sm text-slate-400">
             Questa notizia non comparirÃ  piÃ¹ nel tuo feed personalizzato.
           </p>
         </div>
@@ -92,7 +92,7 @@ function HiddenArticlePlaceholder({ article, onUndo }: HiddenArticlePlaceholderP
       <div className="space-y-4 pt-4 border-t border-slate-800 shrink-0">
         <button
           onClick={onUndo}
-          className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+          className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
         >
           <RotateCcw className="w-4 h-4" />
           <span>Annulla (Riavvia in {timeLeft}s)</span>
@@ -336,7 +336,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
         <div className="fixed top-20 right-4 sm:right-6 z-[100] flex items-center justify-between gap-3 bg-slate-900 dark:bg-slate-800 text-white px-5 py-3.5 rounded-2xl text-sm font-medium shadow-2xl border border-slate-700/80 animate-in fade-in slide-in-from-top-4 duration-300 max-w-md w-11/12 sm:w-auto">
           <div className="flex items-center gap-2.5">
             <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span className="text-xs sm:text-sm">{feedbackMessage}</span>
+            <span className="text-sm sm:text-sm">{feedbackMessage}</span>
           </div>
           <button 
             onClick={() => setFeedbackMessage(null)}
@@ -360,7 +360,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
               <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                 Leggi Dopo
               </h1>
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+              <span className="text-sm font-bold px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
                 {articles.length} {articles.length === 1 ? 'notizia salvata' : 'notizie salvate'}
               </span>
             </div>
@@ -372,7 +372,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {unreadCount > 0 && (
-            <span className="text-xs font-medium px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
+            <span className="text-sm font-medium px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
               <strong>{unreadCount}</strong> da leggere
             </span>
           )}
@@ -413,7 +413,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
         <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl shrink-0">
           <button
             onClick={() => setStatusFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
               statusFilter === "all"
                 ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
@@ -423,7 +423,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
           </button>
           <button
             onClick={() => setStatusFilter("unread")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
               statusFilter === "unread"
                 ? "bg-white dark:bg-slate-700 text-amber-700 dark:text-amber-300 shadow-xs"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
@@ -433,7 +433,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
           </button>
           <button
             onClick={() => setStatusFilter("read")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
               statusFilter === "read"
                 ? "bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-300 shadow-xs"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
@@ -447,12 +447,12 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
       {/* Tags Filter Row (if any) */}
       {availableTags.length > 0 && (
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider shrink-0 mr-1">
+          <span className="text-sm font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider shrink-0 mr-1">
             Filtra Tag:
           </span>
           <button
             onClick={() => setSelectedTag(null)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium shrink-0 transition-colors cursor-pointer ${
+            className={`px-2.5 py-1 rounded-lg text-sm font-medium shrink-0 transition-colors cursor-pointer ${
               selectedTag === null
                 ? "bg-amber-500 text-white font-semibold shadow-xs"
                 : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
@@ -464,7 +464,7 @@ export default function ReadLaterPage({ onNavigateHome }: ReadLaterPageProps) {
             <button
               key={tag}
               onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium shrink-0 transition-colors cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg text-sm font-medium shrink-0 transition-colors cursor-pointer ${
                 selectedTag === tag
                   ? "bg-amber-500 text-white font-semibold shadow-xs"
                   : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/60"

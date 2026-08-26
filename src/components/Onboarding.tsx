@@ -103,7 +103,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             </div>
             <div>
               <h2 className="text-xl font-bold leading-tight">Configurazione Profilo</h2>
-              <p className="text-indigo-100 text-xs mt-0.5">Cerca per argomento o città e scegli le fonti da seguire</p>
+              <p className="text-indigo-100 text-sm mt-0.5">Cerca per argomento o città e scegli le fonti da seguire</p>
             </div>
           </div>
           <button
@@ -125,7 +125,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               <Compass className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               Cerca fonti per argomento o città (es. Lucca, tecnologia, sport)
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
               Inserisci un termine e troverò subito gli URL delle migliori fonti di notizie corrispondenti.
             </p>
 
@@ -149,7 +149,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             </form>
 
             {searchError && (
-              <div className="mt-3 p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200 rounded-xl text-xs font-medium">
+              <div className="mt-3 p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200 rounded-xl text-sm font-medium">
                 {searchError}
               </div>
             )}
@@ -161,27 +161,27 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{item.name}</span>
                       {item.category && (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                        <span className="px-2 py-0.5 rounded text-sm font-semibold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
                           {item.category}
                         </span>
                       )}
                     </div>
                     {item.reason && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{item.reason}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{item.reason}</p>
                     )}
-                    <p className="text-[11px] text-slate-400 font-mono truncate mt-1">{item.url}</p>
+                    <p className="text-sm text-slate-400 font-mono truncate mt-1">{item.url}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => addFeed(item)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 self-end sm:self-center shadow-xs"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 self-end sm:self-center shadow-xs"
                   >
                     <Plus className="w-3.5 h-3.5" /> Aggiungi
                   </button>
                 </div>
               ))}
               {!searchLoading && searchResults.length === 0 && !searchError && (
-                <div className="text-xs text-slate-400 dark:text-slate-500 italic p-1">
+                <div className="text-sm text-slate-400 dark:text-slate-500 italic p-1">
                   I risultati della ricerca (nome e URL delle fonti trovate) compariranno qui.
                 </div>
               )}
@@ -192,7 +192,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
           <div className="w-full md:w-80 flex flex-col min-h-0 bg-slate-50 dark:bg-slate-950/40 p-6 space-y-5 overflow-y-auto shrink-0">
 
             <div className="space-y-3 flex-1 flex flex-col min-h-0">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5 shrink-0">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5 shrink-0">
                 <Rss className="w-4 h-4 text-indigo-500" />
                 Fonti Selezionate ({suggestedFeeds.length})
               </h3>
@@ -201,7 +201,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 {suggestedFeeds.map((feed, idx) => (
                   <div
                     key={idx}
-                    className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-250 dark:border-slate-800 text-xs shadow-3xs flex flex-col gap-1 relative group"
+                    className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-250 dark:border-slate-800 text-sm shadow-3xs flex flex-col gap-1 relative group"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="font-bold text-slate-800 dark:text-slate-200 truncate pr-4">{feed.name}</div>
@@ -215,19 +215,19 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                       </button>
                     </div>
                     {feed.reason && (
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug line-clamp-2">
+                      <p className="text-sm text-slate-500 dark:text-slate-400 leading-snug line-clamp-2">
                         {feed.reason}
                       </p>
                     )}
                     <div className="flex items-center justify-between gap-2 pt-1 mt-0.5 border-t border-slate-100 dark:border-slate-800/60">
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                      <span className="px-1.5 py-0.5 rounded text-sm font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
                         {feed.category || 'Generale'}
                       </span>
                     </div>
                   </div>
                 ))}
                 {suggestedFeeds.length === 0 && (
-                  <div className="text-xs text-slate-400 dark:text-slate-500 italic p-1">
+                  <div className="text-sm text-slate-400 dark:text-slate-500 italic p-1">
                     Le fonti che aggiungi dai risultati della ricerca compariranno qui.
                   </div>
                 )}
@@ -235,7 +235,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             </div>
 
             {/* Context Notice */}
-            <div className="bg-indigo-50/50 dark:bg-indigo-950/20 rounded-2xl p-3.5 border border-indigo-100 dark:border-indigo-900/60 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed shrink-0">
+            <div className="bg-indigo-50/50 dark:bg-indigo-950/20 rounded-2xl p-3.5 border border-indigo-100 dark:border-indigo-900/60 text-sm text-slate-500 dark:text-slate-400 leading-relaxed shrink-0">
               <HelpCircle className="w-4 h-4 text-indigo-500 inline mr-1 mb-0.5" />
               Cerca per argomento o città a sinistra e premi <strong>Aggiungi</strong> sulle fonti che ti interessano. Quando hai terminato, premi su <strong>Inizia a Leggere</strong> in alto.
             </div>

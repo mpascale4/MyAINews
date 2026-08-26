@@ -42,7 +42,7 @@ function ModalHeader({ article, onToggleSave, onOpenInfo, onShare, onClose }: Mo
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">AI Summary • Leggi Dopo</h2>
           {(article.source || article.pubDate) && (
-            <p className="text-xs font-normal text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-normal text-slate-500 dark:text-slate-400">
               {article.source}
               {article.source && article.pubDate ? " • " : ""}
               {article.pubDate ? format(new Date(article.pubDate), "d MMMM yyyy, HH:mm", { locale: it }) : ""}
@@ -100,7 +100,7 @@ function ModalContent({ article, isRegenerating, summaryError, onMarkAsRead }: M
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => onMarkAsRead(article)}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-xs transition-colors shrink-0 self-start sm:self-center shadow-xs cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-sm transition-colors shrink-0 self-start sm:self-center shadow-xs cursor-pointer"
         >
           <span>Apri link remoto</span>
           <ExternalLink className="w-3.5 h-3.5" />
@@ -123,9 +123,9 @@ function ModalContent({ article, isRegenerating, summaryError, onMarkAsRead }: M
               {article.aiTags.map((tag, idx) => (
                 <span
                   key={idx}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60"
                 >
-                  <span className="opacity-60 text-[10px]">#</span>
+                  <span className="opacity-60 text-sm">#</span>
                   <span>{tag}</span>
                 </span>
               ))}
@@ -224,7 +224,7 @@ function ModalFooter({
     <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
       <div className="flex items-center gap-2">
         {article.aiRelevance > 0 && (
-          <span className="text-xs font-bold bg-indigo-100 dark:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-700">
+          <span className="text-sm font-bold bg-indigo-100 dark:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-700">
             Rilevanza: {article.aiRelevance}/100
           </span>
         )}

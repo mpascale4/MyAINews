@@ -537,7 +537,7 @@ export default function SettingsPanel() {
                 <Rss className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                 Sorgenti Notizie (RSS)
              </h2>
-             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                Gestisci i tuoi feed RSS e Google News attivi per raccogliere notizie aggiornate.
              </p>
            </div>
@@ -546,7 +546,7 @@ export default function SettingsPanel() {
                type="button"
                onClick={() => setIsRegenerateConfirmOpen(true)}
                disabled={isGenerating}
-               className="bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+               className="bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-50"
                title="Rigenera le sorgenti automatiche in base ai tuoi interessi attuali"
              >
                {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
@@ -556,7 +556,7 @@ export default function SettingsPanel() {
                type="button"
                onClick={handleExportFeeds}
                disabled={feeds.length === 0}
-               className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+               className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-50"
                title="Esporta tutte le sorgenti (URL e chiave di ricerca) in un file JSON"
              >
                <Download className="w-3.5 h-3.5" /> Esporta
@@ -564,7 +564,7 @@ export default function SettingsPanel() {
              <button
                type="button"
                onClick={handleImportFeedsClick}
-               className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+               className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
                title="Importa sorgenti da un file JSON esportato in precedenza"
              >
                <Upload className="w-3.5 h-3.5" /> Importa
@@ -684,11 +684,11 @@ export default function SettingsPanel() {
          </div>
 
          {pushStatusMessage && (
-           <div className="mb-6 p-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 text-xs font-medium flex items-center justify-between flex-wrap gap-3">
+           <div className="mb-6 p-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 text-sm font-medium flex items-center justify-between flex-wrap gap-3">
              <span>{pushStatusMessage}</span>
              <button
                onClick={() => window.open(window.location.href, '_blank')}
-               className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+               className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors cursor-pointer"
              >
                Apri in nuova scheda ↗
              </button>
@@ -706,7 +706,7 @@ export default function SettingsPanel() {
                  {pushThreshold}%
                </span>
              </div>
-             <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+             <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
                Riceverai una notifica push in background solo per gli articoli la cui rilevanza calcolata dall'AI è superiore o uguale a questa soglia.
              </p>
              <input
@@ -718,7 +718,7 @@ export default function SettingsPanel() {
                onChange={(e) => handleThresholdChange(parseInt(e.target.value, 10))}
                className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
              />
-             <div className="flex justify-between text-[11px] text-slate-400 mt-1.5 font-medium">
+             <div className="flex justify-between text-sm text-slate-400 mt-1.5 font-medium">
                <span>50% (Molti articoli)</span>
                <span>75% (Bilanciato)</span>
                <span>90% (Solo eccellenze)</span>
@@ -727,12 +727,12 @@ export default function SettingsPanel() {
 
            {pushSubscribed && (
              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between flex-wrap gap-4">
-               <span className="text-xs text-slate-500 dark:text-slate-400">
+               <span className="text-sm text-slate-500 dark:text-slate-400">
                  Il dispositivo è correttamente registrato per ricevere notifiche push in background.
                </span>
                <button
                  onClick={sendTestNotification}
-                 className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs rounded-xl transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
+                 className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-sm rounded-xl transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
                >
                  Invia Notifica di Test
                </button>

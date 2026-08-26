@@ -55,7 +55,7 @@ function EmptyState({
             <button
               onClick={onCreateTransformer}
               disabled={isCreatingTransformer}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isCreatingTransformer ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
               Prova a creare trasformatore per "{selectedSource}"
@@ -63,14 +63,14 @@ function EmptyState({
             <button
               onClick={onRequestRemoveSource}
               disabled={isRemovingSource}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isRemovingSource ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
               Rimuovi sorgente
             </button>
           </div>
           {transformerFeedback && (
-            <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400 max-w-md mx-auto">{transformerFeedback}</p>
+            <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 max-w-md mx-auto">{transformerFeedback}</p>
           )}
         </div>
       )}
@@ -80,7 +80,7 @@ function EmptyState({
 
 function SwipeHints() {
   return (
-    <div className="flex flex-wrap items-center justify-between text-xs text-slate-400 dark:text-slate-500 px-1 py-0.5 select-none gap-2">
+    <div className="flex flex-wrap items-center justify-between text-sm text-slate-400 dark:text-slate-500 px-1 py-0.5 select-none gap-2">
       <span className="flex items-center gap-1.5">
         <span>👉</span> <span><strong>Swipe a destra:</strong> apri AI summary</span>
       </span>
@@ -185,21 +185,21 @@ function InfiniteScrollSentinel({
           className={`w-7 h-7 animate-spin text-indigo-600 dark:text-indigo-400 ${isLoadMoreLoading ? "opacity-100" : "opacity-40"}`}
         />
         {!isLoadMoreLoading && (
-          <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-indigo-500">...</div>
+          <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-indigo-500">...</div>
         )}
       </div>
       <div className="flex flex-col items-center gap-1">
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+        <span className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
           {isLoadMoreLoading ? "Caricamento in corso" : "Scorri per altre notizie"}
         </span>
-        <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+        <div className="flex items-center gap-1.5 text-sm text-slate-400">
           <span>Mostrate {Math.min(visibleCount, articles.length)} di {articles.length}</span>
         </div>
       </div>
       {!isLoadMoreLoading && (
         <button
           onClick={onShowMore}
-          className="mt-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
+          className="mt-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-bold transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
         >
           Mostra di più ora
         </button>

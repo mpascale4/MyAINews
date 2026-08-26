@@ -30,7 +30,7 @@ export function FeedbackToast({
     <div className="fixed top-20 right-4 sm:right-6 z-[100] flex items-center justify-between gap-3 bg-slate-900 dark:bg-slate-800 text-white px-5 py-3.5 rounded-2xl text-sm font-medium shadow-2xl border border-slate-700/80 animate-in fade-in slide-in-from-top-4 duration-300 max-w-md w-11/12 sm:w-auto">
       <div className="flex items-center gap-2.5">
         <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
-        <span className="text-xs sm:text-sm">{message}</span>
+        <span className="text-sm sm:text-sm">{message}</span>
       </div>
       <button 
         onClick={onClose}
@@ -57,7 +57,7 @@ function FilterButtons({ filter, onFilterChange }: FilterButtonsProps) {
         <button
           key={f}
           onClick={() => onFilterChange(f)}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-3.5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors cursor-pointer ${
             filter === f 
               ? "bg-indigo-600 dark:bg-indigo-500 text-white shadow-xs" 
               : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
@@ -94,7 +94,7 @@ export function FilterControls({
         <select
           value={sort}
           onChange={(e) => onSortChange(e.target.value)}
-          className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-full px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer transition-colors"
+          className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-full px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer transition-colors"
         >
           <option value="Date">Più recenti</option>
           <option value="AI Relevance">Rilevanza AI</option>
@@ -104,7 +104,7 @@ export function FilterControls({
       <button
         onClick={onRefresh}
         disabled={loading}
-        className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+        className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 cursor-pointer shrink-0"
         title="Aggiorna notizie"
       >
         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -130,7 +130,7 @@ export function ActiveTagIndicator({
       </div>
       <button
         onClick={onClear}
-        className="inline-flex items-center gap-1 text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors shadow-xs cursor-pointer"
+        className="inline-flex items-center gap-1 text-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors shadow-xs cursor-pointer"
       >
         <X className="w-3.5 h-3.5" /> Mostra tutte
       </button>

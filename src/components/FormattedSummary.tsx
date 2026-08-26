@@ -58,7 +58,7 @@ function renderBulletLine(trimmed: string, idx: number) {
   const content = trimmed.replace(/^[•\-*]\s*/, "");
   return (
     <div key={idx} className="flex items-start gap-2.5 pl-1 leading-relaxed text-sm sm:text-base">
-      <span className="text-indigo-600 dark:text-indigo-400 font-bold shrink-0 mt-1 select-none text-xs">
+      <span className="text-indigo-600 dark:text-indigo-400 font-bold shrink-0 mt-1 select-none text-sm">
         ✦
       </span>
       <div className="flex-1">{renderFormattedParagraph(content)}</div>
