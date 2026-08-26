@@ -6,6 +6,7 @@ import type { Feed, SuggestedFeed } from "../types";
 const DEFAULT_FEEDS: Feed[] = [
   { name: "ANSA Notizie", url: "https://www.ansa.it/sito/ansait_rss.xml" },
   { name: "Il Post", url: "https://www.ilpost.it/feed" },
+  { name: "la Repubblica", url: "https://www.repubblica.it/rss/homepage/rss2.0.xml" },
 ];
 
 async function searchFeedsByKeyword(keyword: string): Promise<SuggestedFeed[]> {
