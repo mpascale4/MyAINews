@@ -37,6 +37,9 @@ function ArticlesOverlay({
   onShareSummary,
   onRegenerateSummary,
   onCloseInfo,
+  summaryIndex,
+  summaryCount,
+  onNavigateSummary,
 }: {
   selectedArticle: ReturnType<typeof useArticleSummary>["selectedArticle"];
   isRegenerating: boolean;
@@ -46,10 +49,25 @@ function ArticlesOverlay({
   onShareSummary: (article: NonNullable<ReturnType<typeof useArticleSummary>["selectedArticle"]>) => void;
   onRegenerateSummary: (article: NonNullable<ReturnType<typeof useArticleSummary>["selectedArticle"]>) => void;
   onCloseInfo: () => void;
+  summaryIndex: number;
+  summaryCount: number;
+  onNavigateSummary: (nextIndex: number) => void;
 }) {
   return (
     <>
-      {selectedArticle ? <ArticleSummaryModal article={selectedArticle} isRegenerating={isRegenerating} summaryError={summaryError} onClose={onCloseSummary} onShare={onShareSummary} onRegenerate={onRegenerateSummary} /> : null}
+      {selectedArticle ? (
+        <ArticleSummaryModal
+          article={selectedArticle}
+          isRegenerating={isRegenerating}
+          summaryError={summaryError}
+          onClose={onCloseSummary}
+          onShare={onShareSummary}
+          onRegenerate={onRegenerateSummary}
+          carouselIndex={summaryIndex}
+          carouselCount={summaryCount}
+          onNavigate={onNavigateSummary}
+        />
+      ) : null}
       {infoArticle ? <ArticleInfoModal article={infoArticle} onClose={onCloseInfo} /> : null}
     </>
   );
@@ -73,7 +91,7 @@ function ArticlesHeader({ feedState }: { feedState: ReturnType<typeof useArticle
 
 export default function ArticlesList() {
   const feedState = useArticlesFeed();
-  const summaryState = useArticleSummary(feedState.setArticles);
+  const summaryState = useArticleSummary(feedState.setArticles, feedState.visibleArticles);
   const showEmptyState = !feedState.loading && feedState.feeds.length === 0;
   const showLoadingState = feedState.loading;
   const showLoadMore = feedState.articles.length > feedState.visibleCount;
@@ -109,6 +127,9 @@ export default function ArticlesList() {
           void summaryState.handleRegenerateSummary(article);
         }}
         onCloseInfo={() => summaryState.setInfoArticle(null)}
+        summaryIndex={summaryState.summaryIndex}
+        summaryCount={feedState.visibleArticles.length}
+        onNavigateSummary={summaryState.navigateSummary}
       />
     </div>
   );

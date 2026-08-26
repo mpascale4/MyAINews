@@ -113,7 +113,32 @@ export function useArticlesFeed() {
   return { feeds, articles, setArticles, errors, loading, refreshing, visibleArticles, visibleCount, setVisibleCount, load, selectedSource, setSelectedSource };
 }
 
-export function useArticleSummary(setArticles: React.Dispatch<React.SetStateAction<Article[]>>) {
+type SummarySetters = {
+  setSelectedArticle: (article: Article | null) => void;
+  setSummaryError: (error: string | null) => void;
+  setIsRegenerating: (value: boolean) => void;
+  updateArticleSummary: (article: Article, summary: string) => void;
+};
+
+async function loadSummaryFor(article: Article, setters: SummarySetters) {
+  setters.setSelectedArticle({ ...article, aiSummary: article.aiSummary || "" });
+  setters.setSummaryError(null);
+  if (article.aiSummary) {
+    return;
+  }
+
+  setters.setIsRegenerating(true);
+  try {
+    const data = await requestSummary(article);
+    setters.updateArticleSummary(article, data.summary);
+  } catch {
+    setters.setSummaryError("Errore durante la generazione del riassunto.");
+  } finally {
+    setters.setIsRegenerating(false);
+  }
+}
+
+export function useArticleSummary(setArticles: React.Dispatch<React.SetStateAction<Article[]>>, visibleArticles: Article[]) {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [infoArticle, setInfoArticle] = useState<Article | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -124,23 +149,9 @@ export function useArticleSummary(setArticles: React.Dispatch<React.SetStateActi
     setSelectedArticle({ ...article, aiSummary: summary });
   };
 
-  const handleOpenSummary = async (article: Article) => {
-    setSelectedArticle({ ...article, aiSummary: article.aiSummary || "" });
-    setSummaryError(null);
-    if (article.aiSummary) {
-      return;
-    }
+  const summarySetters: SummarySetters = { setSelectedArticle, setSummaryError, setIsRegenerating, updateArticleSummary };
 
-    setIsRegenerating(true);
-    try {
-      const data = await requestSummary(article);
-      updateArticleSummary(article, data.summary);
-    } catch {
-      setSummaryError("Errore durante la generazione del riassunto.");
-    } finally {
-      setIsRegenerating(false);
-    }
-  };
+  const handleOpenSummary = (article: Article) => loadSummaryFor(article, summarySetters);
 
   const handleRegenerateSummary = async (article: Article) => {
     setIsRegenerating(true);
@@ -155,5 +166,25 @@ export function useArticleSummary(setArticles: React.Dispatch<React.SetStateActi
     }
   };
 
-  return { selectedArticle, setSelectedArticle, infoArticle, setInfoArticle, summaryError, isRegenerating, handleOpenSummary, handleRegenerateSummary };
+  // Index of the open article within the currently visible list, for
+  // swipe-carousel prev/next navigation inside the summary modal.
+  const summaryIndex = selectedArticle ? visibleArticles.findIndex((item) => item.guid === selectedArticle.guid) : -1;
+
+  const navigateSummary = (nextIndex: number) => {
+    const target = visibleArticles[nextIndex];
+    if (target) void loadSummaryFor(target, summarySetters);
+  };
+
+  return {
+    selectedArticle,
+    setSelectedArticle,
+    infoArticle,
+    setInfoArticle,
+    summaryError,
+    isRegenerating,
+    handleOpenSummary,
+    handleRegenerateSummary,
+    summaryIndex,
+    navigateSummary,
+  };
 }

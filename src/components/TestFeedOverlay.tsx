@@ -1,4 +1,5 @@
 import { Loader2, Search, X } from "lucide-react";
+import { useSwipeToDismiss } from "@mp/app-kit";
 import type { Article, Feed } from "../types";
 
 type TestFeedOverlayProps = {
@@ -38,9 +39,18 @@ function TestFeedResults({ articles, usedScraper }: { articles: Article[]; usedS
 }
 
 export default function TestFeedOverlay({ feed, loading, articles, usedScraper, error, onClose, onFindAlternative, findingAlternative }: TestFeedOverlayProps) {
+  // Swipe-down dismiss is a shortcut only: the header "X" button remains
+  // the primary, always-visible way to dismiss this overlay.
+  const { offset, isDragging, handlers } = useSwipeToDismiss({ onDismiss: onClose });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs" onClick={onClose}>
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900" onClick={(event) => event.stopPropagation()}>
+      <div
+        className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+        style={{ transform: `translateY(${Math.max(0, offset)}px)`, transition: isDragging ? "none" : "transform 0.2s ease" }}
+        onClick={(event) => event.stopPropagation()}
+        {...handlers}
+      >
         <div className="flex items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
           <div className="min-w-0">
             <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Test sorgente</p>
