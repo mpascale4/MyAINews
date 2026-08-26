@@ -17,7 +17,7 @@ function FeedLibrarySection({ feeds, onDelete, onExport, onImport, feedback }: {
             Importa
             <input type="file" accept="application/json" onChange={onImport} className="hidden" />
           </label>
-          <button type="button" onClick={onExport} disabled={feeds.length === 0} className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">Esporta</button>
+          <button type="button" onClick={onExport} disabled={feeds.length === 0} className="cursor-pointer rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">Esporta</button>
         </div>
       </div>
       {feedback ? <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">{feedback}</p> : null}
@@ -38,7 +38,7 @@ function ManualFeedSection(props: ReturnType<typeof useManualFeedForm>) {
       <div className="mt-4 grid grid-cols-1 gap-3">
         <input type="text" value={props.manualName} onChange={(event) => props.setManualName(event.target.value)} placeholder="Nome feed" className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
         <input type="url" value={props.manualUrl} onChange={(event) => props.setManualUrl(event.target.value)} placeholder="https://example.com/feed.xml" className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
-        <button type="button" onClick={props.handleAddManualFeed} disabled={!props.manualUrl.trim()} className="w-fit rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50">Aggiungi feed</button>
+        <button type="button" onClick={props.handleAddManualFeed} disabled={!props.manualUrl.trim()} className="w-fit cursor-pointer rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">Aggiungi feed</button>
       </div>
     </section>
   );

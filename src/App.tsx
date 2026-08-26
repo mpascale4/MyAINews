@@ -16,7 +16,7 @@ function AppHeader({ activeTab, theme, toggleTheme }: { activeTab: TabId; theme:
         <img src="/icon.svg" alt="" className="h-8 w-8 rounded-xl object-cover shadow-sm" />
         <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">{activeTab === "home" ? "Le tue notizie" : "Impostazioni"}</h2>
       </div>
-      <button type="button" onClick={toggleTheme} className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-800">
+      <button type="button" onClick={toggleTheme} className="cursor-pointer rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-800">
         {theme === "dark" ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
       </button>
     </header>
@@ -39,14 +39,14 @@ function DesktopSidebar({ activeTab, onTabChange, theme, toggleTheme }: { active
       </div>
       <nav className="flex-1 space-y-2 px-4">
         {navItems.map((item) => (
-          <button key={item.id} type="button" onClick={() => onTabChange(item.id)} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-colors ${activeTab === item.id ? "bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300" : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/50"}`}>
+          <button key={item.id} type="button" onClick={() => onTabChange(item.id)} className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors ${activeTab === item.id ? "bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300" : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/50"}`}>
             {item.icon}
             {item.label}
           </button>
         ))}
       </nav>
       <div className="border-t border-slate-200 p-4 dark:border-slate-800">
-        <button type="button" onClick={toggleTheme} className="flex w-full items-center justify-between rounded-xl bg-slate-100 px-3.5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-800">
+        <button type="button" onClick={toggleTheme} className="flex w-full cursor-pointer items-center justify-between rounded-xl bg-slate-100 px-3.5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-800">
           <span className="flex items-center gap-2.5">
             {theme === "dark" ? <Moon className="h-4 w-4 text-indigo-400" /> : <Sun className="h-4 w-4 text-amber-500" />}
             {theme === "dark" ? "Tema scuro" : "Tema chiaro"}
@@ -66,7 +66,7 @@ function MobileNavigation({ activeTab, onTabChange }: { activeTab: TabId; onTabC
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-slate-200 bg-white transition-colors dark:border-slate-800 dark:bg-slate-900 md:hidden">
       {navItems.map((item) => (
-        <button key={item.id} type="button" onClick={() => onTabChange(item.id)} className={`flex h-full w-full flex-col items-center justify-center gap-1 ${activeTab === item.id ? "font-semibold text-indigo-600 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400"}`}>
+        <button key={item.id} type="button" onClick={() => onTabChange(item.id)} className={`flex h-full w-full cursor-pointer flex-col items-center justify-center gap-1 ${activeTab === item.id ? "font-semibold text-indigo-600 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400"}`}>
           {item.icon}
           <span className="text-sm">{item.label}</span>
         </button>

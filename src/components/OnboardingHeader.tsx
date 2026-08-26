@@ -18,9 +18,10 @@ export function OnboardingHeader({ finishing, onFinish }: OnboardingHeaderProps)
         </div>
       </div>
       <button
+        type="button"
         onClick={onFinish}
         disabled={finishing}
-        className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-md transition-colors hover:bg-emerald-600 disabled:opacity-50"
+        className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-md transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {finishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
         <span>Inizia</span>

@@ -29,10 +29,10 @@ export default function ArticleSummaryModalHeader({ article, onShare, onClose }:
         <a href={article.link} target="_blank" rel="noopener noreferrer" className="rounded-full p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-300">
           <ExternalLink className="h-5 w-5" />
         </a>
-        <button type="button" onClick={() => onShare(article)} className="rounded-full p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-300">
+        <button type="button" onClick={() => onShare(article)} className="cursor-pointer rounded-full p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-300">
           <Share2 className="h-5 w-5" />
         </button>
-        <button type="button" onClick={onClose} className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">
+        <button type="button" onClick={onClose} className="cursor-pointer rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">
           <X className="h-5 w-5" />
         </button>
       </div>

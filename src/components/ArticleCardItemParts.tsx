@@ -28,7 +28,7 @@ function ArticleHeader({ article, onShare }: { article: Article; onShare: (artic
       </div>
       <div className="flex items-center gap-2">
         <span className={`text-sm opacity-75 ${accent.text}`}>{formatDate(article.pubDate)}</span>
-        <button type="button" onClick={(event) => onShare(article, event)} className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-white/40 hover:text-indigo-600 dark:hover:text-indigo-300">
+        <button type="button" onClick={(event) => onShare(article, event)} className="cursor-pointer rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-white/40 hover:text-indigo-600 dark:hover:text-indigo-300">
           <Share2 className="h-4 w-4" />
         </button>
       </div>
@@ -39,11 +39,11 @@ function ArticleHeader({ article, onShare }: { article: Article; onShare: (artic
 function ArticleActions({ article, onOpenSummary, onOpenInfo }: { article: Article; onOpenSummary: (article: Article) => void; onOpenInfo?: (article: Article) => void }) {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2">
-      <button type="button" onClick={() => onOpenSummary(article)} className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300">
+      <button type="button" onClick={() => onOpenSummary(article)} className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300">
         <Sparkles className="h-4 w-4" />
         Riassunto AI
       </button>
-      {onOpenInfo ? <button type="button" onClick={() => onOpenInfo(article)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"><Info className="h-4 w-4" />Info</button> : null}
+      {onOpenInfo ? <button type="button" onClick={() => onOpenInfo(article)} className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"><Info className="h-4 w-4" />Info</button> : null}
       <a href={article.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
         <ExternalLink className="h-4 w-4" />
         Apri fonte

@@ -15,7 +15,7 @@ export default function ArticleInfoModal({ article, onClose }: ArticleInfoModalP
             <Info className="h-5 w-5" />
             Dettagli articolo
           </div>
-          <button type="button" onClick={onClose} className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">
+          <button type="button" onClick={onClose} className="cursor-pointer rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">
             <X className="h-5 w-5" />
           </button>
         </div>

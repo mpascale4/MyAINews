@@ -4,6 +4,7 @@ import ArticleCardItem from "./ArticleCardItem";
 import ArticleInfoModal from "./ArticleInfoModal";
 import ArticleSummaryModal from "./ArticleSummaryModal";
 import { useArticlesFeed, useArticleSummary } from "./articlesListHooks";
+import SourceSelectorBar from "./SourceSelectorBar";
 
 function EmptyState() {
   return (
@@ -54,6 +55,22 @@ function ArticlesOverlay({
   );
 }
 
+function ArticlesHeader({ feedState }: { feedState: ReturnType<typeof useArticlesFeed> }) {
+  const isBusy = feedState.loading || feedState.refreshing;
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Notizie</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Articoli caricati in tempo reale dai feed configurati.</p>
+      </div>
+      <button type="button" onClick={() => void feedState.load(true)} disabled={isBusy} className={`inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 ${isBusy ? "" : "cursor-pointer"}`}>
+        {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+        Aggiorna
+      </button>
+    </div>
+  );
+}
+
 export default function ArticlesList() {
   const feedState = useArticlesFeed();
   const summaryState = useArticleSummary(feedState.setArticles);
@@ -67,17 +84,9 @@ export default function ArticlesList() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Notizie</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Articoli caricati in tempo reale dai feed configurati.</p>
-        </div>
-        <button type="button" onClick={() => void feedState.load(true)} disabled={feedState.loading || feedState.refreshing} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50">
-          {feedState.loading || feedState.refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Aggiorna
-        </button>
-      </div>
+      <ArticlesHeader feedState={feedState} />
       {feedState.errors.length > 0 ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">{feedState.errors.map((error) => <p key={error}>{error}</p>)}</div> : null}
+      {feedState.feeds.length > 0 ? <SourceSelectorBar feeds={feedState.feeds} selectedSource={feedState.selectedSource} onSelectSource={feedState.setSelectedSource} /> : null}
       {showLoadingState ? (
         <div className="flex items-center justify-center py-16 text-slate-500 dark:text-slate-400">
           <Loader2 className="mr-3 h-5 w-5 animate-spin" />
@@ -86,7 +95,7 @@ export default function ArticlesList() {
       ) : (
         <ArticlesGrid visibleArticles={feedState.visibleArticles} onOpenSummary={summaryState.handleOpenSummary} onOpenInfo={summaryState.setInfoArticle} />
       )}
-      {showLoadMore ? <button type="button" onClick={() => feedState.setVisibleCount((count) => count + 24)} className="mx-auto block rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">Mostra altre notizie</button> : null}
+      {showLoadMore ? <button type="button" onClick={() => feedState.setVisibleCount((count) => count + 24)} className="mx-auto block cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">Mostra altre notizie</button> : null}
       <ArticlesOverlay
         selectedArticle={summaryState.selectedArticle}
         isRegenerating={summaryState.isRegenerating}

@@ -60,14 +60,14 @@ function OverlayActions({
       <button
         onClick={onCancel}
         disabled={isConfirming}
-        className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+        className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
       >
         {cancelLabel}
       </button>
       <button
         onClick={onConfirm}
         disabled={isConfirming}
-        className={`inline-flex items-center gap-2 px-4 py-2 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+        className={`inline-flex items-center gap-2 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60 text-white rounded-xl text-sm font-bold transition-colors cursor-pointer ${
           accentColor === "rose" ? "bg-rose-600 hover:bg-rose-700" : "bg-indigo-600 hover:bg-indigo-700"
         }`}
       >
