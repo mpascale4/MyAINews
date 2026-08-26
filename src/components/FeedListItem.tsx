@@ -21,7 +21,7 @@ export default function FeedListItem({ feed, onDelete }: FeedListItemProps) {
         </div>
         <p className={`mt-1 truncate text-sm opacity-75 ${accent.text}`}>{feed.url}</p>
       </div>
-      <button type="button" onClick={() => onDelete(feed.url)} className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40">
+      <button type="button" onClick={() => onDelete(feed.url)} className="cursor-pointer rounded-lg p-2 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40">
         <Trash2 className="h-4 w-4" />
       </button>
     </div>

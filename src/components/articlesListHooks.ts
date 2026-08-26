@@ -41,6 +41,47 @@ async function requestSummary(article: Article) {
   return response.json() as Promise<{ summary: string }>;
 }
 
+type FeedLoadSetters = {
+  setFeeds: (feeds: Feed[]) => void;
+  setArticles: (articles: Article[]) => void;
+  setErrors: (errors: string[]) => void;
+  setLoading: (loading: boolean) => void;
+  setRefreshing: (refreshing: boolean) => void;
+  setVisibleCount: (count: number) => void;
+};
+
+async function loadArticles(showRefreshState: boolean, setters: FeedLoadSetters) {
+  const currentFeeds = loadFeeds();
+  setters.setFeeds(currentFeeds);
+  registerSourceNames(currentFeeds.map((feed) => feed.name));
+
+  if (currentFeeds.length === 0) {
+    setters.setArticles([]);
+    setters.setErrors([]);
+    setters.setLoading(false);
+    setters.setRefreshing(false);
+    return;
+  }
+
+  if (showRefreshState) {
+    setters.setRefreshing(true);
+  } else {
+    setters.setLoading(true);
+  }
+
+  try {
+    const data = await fetchArticlesForFeeds(currentFeeds);
+    setters.setArticles(sortArticlesByDate(data.results.flatMap((result) => result.articles)));
+    setters.setErrors(data.results.filter((result) => result.error).map((result) => `${result.feed.name}: ${result.error}`));
+    setters.setVisibleCount(24);
+  } catch {
+    setters.setErrors(["Errore durante il caricamento delle notizie."]);
+  } finally {
+    setters.setLoading(false);
+    setters.setRefreshing(false);
+  }
+}
+
 export function useArticlesFeed() {
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
@@ -48,38 +89,10 @@ export function useArticlesFeed() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [visibleCount, setVisibleCount] = useState(24);
+  const [selectedSource, setSelectedSource] = useState("");
 
-  const load = async (showRefreshState: boolean) => {
-    const currentFeeds = loadFeeds();
-    setFeeds(currentFeeds);
-    registerSourceNames(currentFeeds.map((feed) => feed.name));
-
-    if (currentFeeds.length === 0) {
-      setArticles([]);
-      setErrors([]);
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
-
-    if (showRefreshState) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    try {
-      const data = await fetchArticlesForFeeds(currentFeeds);
-      setArticles(sortArticlesByDate(data.results.flatMap((result) => result.articles)));
-      setErrors(data.results.filter((result) => result.error).map((result) => `${result.feed.name}: ${result.error}`));
-      setVisibleCount(24);
-    } catch {
-      setErrors(["Errore durante il caricamento delle notizie."]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  const load = (showRefreshState: boolean) =>
+    loadArticles(showRefreshState, { setFeeds, setArticles, setErrors, setLoading, setRefreshing, setVisibleCount });
 
   useEffect(() => {
     void load(false);
@@ -90,9 +103,14 @@ export function useArticlesFeed() {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  const visibleArticles = useMemo(() => articles.slice(0, visibleCount), [articles, visibleCount]);
+  const filteredArticles = useMemo(
+    () => (selectedSource ? articles.filter((article) => article.source === selectedSource) : articles),
+    [articles, selectedSource]
+  );
 
-  return { feeds, articles, setArticles, errors, loading, refreshing, visibleArticles, visibleCount, setVisibleCount, load };
+  const visibleArticles = useMemo(() => filteredArticles.slice(0, visibleCount), [filteredArticles, visibleCount]);
+
+  return { feeds, articles, setArticles, errors, loading, refreshing, visibleArticles, visibleCount, setVisibleCount, load, selectedSource, setSelectedSource };
 }
 
 export function useArticleSummary(setArticles: React.Dispatch<React.SetStateAction<Article[]>>) {

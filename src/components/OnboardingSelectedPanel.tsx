@@ -21,7 +21,7 @@ export function OnboardingSelectedPanel({ selectedFeeds, onRemoveFeed }: Onboard
                 <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{feed.name}</p>
                 <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{feed.url}</p>
               </div>
-              <button type="button" onClick={() => onRemoveFeed(feed.url)} className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-slate-800">
+              <button type="button" onClick={() => onRemoveFeed(feed.url)} className="cursor-pointer rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-slate-800">
                 <X className="h-4 w-4" />
               </button>
             </div>

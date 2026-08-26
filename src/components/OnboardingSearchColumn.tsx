@@ -35,9 +35,9 @@ function SearchResults({ results, onAddFeed }: { results: SuggestedFeed[]; onAdd
             <button
               type="button"
               onClick={() => onAddFeed(feed)}
-              className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4" aria-hidden="true" />
               Aggiungi
             </button>
           </div>
@@ -69,7 +69,7 @@ export function OnboardingSearchColumn(props: OnboardingSearchColumnProps) {
           <button
             type="submit"
             disabled={props.searchLoading || !props.searchKeyword.trim()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {props.searchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             Cerca
@@ -81,7 +81,7 @@ export function OnboardingSearchColumn(props: OnboardingSearchColumnProps) {
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Aggiungi manualmente</h3>
           <input type="text" value={props.manualName} onChange={(event) => props.setManualName(event.target.value)} placeholder="Nome sorgente" className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
           <input type="url" value={props.manualUrl} onChange={(event) => props.setManualUrl(event.target.value)} placeholder="https://example.com/feed.xml" className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
-          <button type="button" onClick={props.onAddManualFeed} disabled={!props.manualUrl.trim()} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200">
+          <button type="button" onClick={props.onAddManualFeed} disabled={!props.manualUrl.trim()} className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200">
             <Plus className="h-4 w-4" />
             Aggiungi feed
           </button>
