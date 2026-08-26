@@ -213,6 +213,111 @@ export async function fetchFeedArticles(feed: Feed): Promise<FeedFetchResult> {
   }
 }
 
+async function fetchFeedArticlesRssOnly(feed: Feed): Promise<FeedFetchResult> {
+  try {
+    const parsed = await fetchFeedWithFallback(feed.url, feed.name);
+    if (parsed?.items?.length) {
+      return {
+        feed,
+        articles: dedupeArticles(parsed.items.map((item) => toArticle(feed, item)).filter((item): item is Article => item !== null)),
+      };
+    }
+
+    return { feed, articles: [], error: "Nessun feed RSS valido trovato." };
+  } catch (error) {
+    return { feed, articles: [], error: getErrorMessage(error) };
+  }
+}
+
 export async function fetchBulkFeedArticles(feeds: Feed[]) {
   return Promise.all(feeds.map((feed) => fetchFeedArticles(feed)));
+}
+
+const MAX_FRESH_AGE_DAYS = 30;
+
+export function isFeedFresh(articles: Article[], maxAgeDays = MAX_FRESH_AGE_DAYS): boolean {
+  const newestTime = articles.reduce((newest, article) => {
+    const time = article.pubDate ? new Date(article.pubDate).getTime() : NaN;
+    return Number.isFinite(time) && time > newest ? time : newest;
+  }, 0);
+
+  if (newestTime === 0) {
+    return false;
+  }
+
+  const ageMs = Date.now() - newestTime;
+  return ageMs <= maxAgeDays * 24 * 60 * 60 * 1000;
+}
+
+export function getHomepageUrl(url: string): string | null {
+  try {
+    return new URL(url).origin + "/";
+  } catch {
+    return null;
+  }
+}
+
+function buildGoogleNewsFeedUrl(originalUrl: string, feedName: string): string | null {
+  try {
+    const hostname = new URL(originalUrl).hostname.replace("www.", "");
+    const siteQuery = `site:${hostname}`;
+    return `https://news.google.com/rss/search?q=${encodeURIComponent(siteQuery)}&hl=it&gl=IT&ceid=IT:it`;
+  } catch {
+    const encodedName = encodeURIComponent(feedName);
+    return encodedName ? `https://news.google.com/rss/search?q=${encodedName}&hl=it&gl=IT&ceid=IT:it` : null;
+  }
+}
+
+/**
+ * Cerca una sorgente alternativa per un feed che non ha dato risultati freschi:
+ * prova una ricerca Google News mirata al dominio, poi lo scrape della homepage
+ * (più lento: usa l'AI per creare un trasformatore se necessario).
+ */
+export async function findAlternativeFeed(feed: Feed): Promise<{ feed: Feed; verified: boolean }> {
+  const googleNewsUrl = buildGoogleNewsFeedUrl(feed.url, feed.name);
+  if (googleNewsUrl && googleNewsUrl !== feed.url) {
+    const googleNewsFeed = { ...feed, url: googleNewsUrl };
+    const googleNewsResult = await fetchFeedArticlesRssOnly(googleNewsFeed);
+    if (googleNewsResult.articles.length > 0 && isFeedFresh(googleNewsResult.articles)) {
+      return { feed: googleNewsFeed, verified: true };
+    }
+  }
+
+  const homepageUrl = getHomepageUrl(feed.url);
+  if (!homepageUrl || homepageUrl === feed.url) {
+    return { feed, verified: false };
+  }
+
+  const homepageFeed = { ...feed, url: homepageUrl };
+  const homepageResult = await fetchFeedArticles(homepageFeed);
+  if (homepageResult.articles.length > 0) {
+    return { feed: homepageFeed, verified: true };
+  }
+
+  return { feed, verified: false };
+}
+
+/**
+ * Verifica rapidamente (solo parsing RSS, senza scraper AI) che un feed
+ * suggerito dia contenuti aggiornati. Se obsoleto, tenta una ricerca Google
+ * News mirata al dominio; usata nella ricerca AI bulk per restare veloce.
+ */
+export async function verifyAndFixFeed(feed: Feed): Promise<{ feed: Feed; verified: boolean }> {
+  const result = await fetchFeedArticlesRssOnly(feed);
+  if (result.articles.length > 0 && isFeedFresh(result.articles)) {
+    return { feed, verified: true };
+  }
+
+  const googleNewsUrl = buildGoogleNewsFeedUrl(feed.url, feed.name);
+  if (!googleNewsUrl || googleNewsUrl === feed.url) {
+    return { feed, verified: false };
+  }
+
+  const googleNewsFeed = { ...feed, url: googleNewsUrl };
+  const googleNewsResult = await fetchFeedArticlesRssOnly(googleNewsFeed);
+  if (googleNewsResult.articles.length > 0 && isFeedFresh(googleNewsResult.articles)) {
+    return { feed: googleNewsFeed, verified: true };
+  }
+
+  return { feed, verified: false };
 }
