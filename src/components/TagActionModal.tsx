@@ -175,6 +175,51 @@ function ModalFooter({ tag, selectedTag, onToggleFilter, onClose }: ModalFooterP
   );
 }
 
+interface ModalContentSectionProps {
+  tag: string;
+  searchLoading: boolean;
+  searchResults: TagFeedResult[];
+  searchFeedback: string | null;
+  allAddedFeeds: Record<string, boolean>;
+  onSearch: (tag: string) => void;
+  onAddFeed: (feed: TagFeedResult) => void;
+}
+
+function ModalContentSection({
+  tag,
+  searchLoading,
+  searchResults,
+  searchFeedback,
+  allAddedFeeds,
+  onSearch,
+  onAddFeed,
+}: ModalContentSectionProps) {
+  return (
+    <div className="space-y-5">
+      {searchResults.length === 0 && !searchLoading && (
+        <InitialPrompt tag={tag} onSearch={onSearch} />
+      )}
+
+      {searchLoading && <SearchLoading tag={tag} />}
+
+      {searchFeedback && (
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-2">
+          <Check className="w-4 h-4" />
+          <span>{searchFeedback}</span>
+        </div>
+      )}
+
+      {searchResults.length > 0 && (
+        <SearchResultsList
+          searchResults={searchResults}
+          allAddedFeeds={allAddedFeeds}
+          onAddFeed={onAddFeed}
+        />
+      )}
+    </div>
+  );
+}
+
 // Modal shown when clicking a tag on an article: lets the user AI-search related
 // feeds for that tag, add them, or toggle a filter on the current tag.
 export default function TagActionModal({
@@ -201,26 +246,15 @@ export default function TagActionModal({
         <ModalHeader tag={tag} onClose={onClose} />
 
         <div className="p-6 space-y-5">
-          {searchResults.length === 0 && !searchLoading && (
-            <InitialPrompt tag={tag} onSearch={onSearch} />
-          )}
-
-          {searchLoading && <SearchLoading tag={tag} />}
-
-          {searchFeedback && (
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-2">
-              <Check className="w-4 h-4" />
-              <span>{searchFeedback}</span>
-            </div>
-          )}
-
-          {searchResults.length > 0 && (
-            <SearchResultsList
-              searchResults={searchResults}
-              allAddedFeeds={allAddedFeeds}
-              onAddFeed={onAddFeed}
-            />
-          )}
+          <ModalContentSection
+            tag={tag}
+            searchLoading={searchLoading}
+            searchResults={searchResults}
+            searchFeedback={searchFeedback}
+            allAddedFeeds={allAddedFeeds}
+            onSearch={onSearch}
+            onAddFeed={onAddFeed}
+          />
 
           <ModalFooter
             tag={tag}

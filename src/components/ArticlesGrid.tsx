@@ -208,17 +208,29 @@ function InfiniteScrollSentinel({
   );
 }
 
-// Main article list: empty state (with transformer/remove-source actions),
-// the card grid itself, undo-hide toasts, and the infinite-scroll sentinel.
-export default function ArticlesGrid({
-  loading,
+interface ArticlesContentProps {
+  articles: Article[];
+  visibleCount: number;
+  selectedTag: string | null;
+  isLoadMoreLoading: boolean;
+  recentlyHiddenQueue: Article[];
+  sentinelRef: React.RefObject<HTMLDivElement | null>;
+  isTagExcluded: (tag: string) => boolean;
+  onTagClick: (tag: string) => void;
+  onOpenSummary: (article: Article) => void;
+  onToggleRead: (article: Article) => void;
+  onToggleSave: (article: Article) => void;
+  onHide: (id: number) => void;
+  onShare: (article: Article, e?: React.MouseEvent) => void;
+  onOpenInfo: (article: Article) => void;
+  onUndoHide: (id: number) => void | Promise<void>;
+  onShowMore: () => void;
+}
+
+function ArticlesContent({
   articles,
   visibleCount,
-  selectedSource,
   selectedTag,
-  isCreatingTransformer,
-  isRemovingSource,
-  transformerFeedback,
   isLoadMoreLoading,
   recentlyHiddenQueue,
   sentinelRef,
@@ -231,27 +243,8 @@ export default function ArticlesGrid({
   onShare,
   onOpenInfo,
   onUndoHide,
-  onCreateTransformer,
-  onRequestRemoveSource,
   onShowMore,
-}: ArticlesGridProps) {
-  if (loading) {
-    return <div className="text-center text-slate-500 dark:text-slate-400 py-12">Caricamento notizie...</div>;
-  }
-
-  if (articles.length === 0) {
-    return (
-      <EmptyState
-        selectedSource={selectedSource}
-        isCreatingTransformer={isCreatingTransformer}
-        isRemovingSource={isRemovingSource}
-        transformerFeedback={transformerFeedback}
-        onCreateTransformer={onCreateTransformer}
-        onRequestRemoveSource={onRequestRemoveSource}
-      />
-    );
-  }
-
+}: ArticlesContentProps) {
   return (
     <div className="space-y-4">
       <SwipeHints />
@@ -277,5 +270,73 @@ export default function ArticlesGrid({
         onShowMore={onShowMore}
       />
     </div>
+  );
+}
+
+// Main article list: empty state (with transformer/remove-source actions),
+// the card grid itself, undo-hide toasts, and the infinite-scroll sentinel.
+export default function ArticlesGrid(props: ArticlesGridProps) {
+  const {
+    loading,
+    articles,
+    visibleCount,
+    selectedSource,
+    selectedTag,
+    isCreatingTransformer,
+    isRemovingSource,
+    transformerFeedback,
+    isLoadMoreLoading,
+    recentlyHiddenQueue,
+    sentinelRef,
+    isTagExcluded,
+    onTagClick,
+    onOpenSummary,
+    onToggleRead,
+    onToggleSave,
+    onHide,
+    onShare,
+    onOpenInfo,
+    onUndoHide,
+    onCreateTransformer,
+    onRequestRemoveSource,
+    onShowMore,
+  } = props;
+
+  if (loading) {
+    return <div className="text-center text-slate-500 dark:text-slate-400 py-12">Caricamento notizie...</div>;
+  }
+
+  if (articles.length === 0) {
+    return (
+      <EmptyState
+        selectedSource={selectedSource}
+        isCreatingTransformer={isCreatingTransformer}
+        isRemovingSource={isRemovingSource}
+        transformerFeedback={transformerFeedback}
+        onCreateTransformer={onCreateTransformer}
+        onRequestRemoveSource={onRequestRemoveSource}
+      />
+    );
+  }
+
+  return (
+    <ArticlesContent
+      articles={articles}
+      visibleCount={visibleCount}
+      selectedTag={selectedTag}
+      isLoadMoreLoading={isLoadMoreLoading}
+      recentlyHiddenQueue={recentlyHiddenQueue}
+      sentinelRef={sentinelRef}
+      isTagExcluded={isTagExcluded}
+      onTagClick={onTagClick}
+      onOpenSummary={onOpenSummary}
+      onToggleRead={onToggleRead}
+      onToggleSave={onToggleSave}
+      onHide={onHide}
+      onShare={onShare}
+      onOpenInfo={onOpenInfo}
+      onUndoHide={onUndoHide}
+      onShowMore={onShowMore}
+    />
   );
 }

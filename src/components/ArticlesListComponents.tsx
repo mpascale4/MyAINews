@@ -42,6 +42,34 @@ export function FeedbackToast({
   );
 }
 
+interface FilterButtonsProps {
+  filter: string;
+  onFilterChange: (filter: string) => void;
+}
+
+function FilterButtons({ filter, onFilterChange }: FilterButtonsProps) {
+  const FILTERS = ["All", "Today"];
+
+  return (
+    <>
+      <Filter className="w-5 h-5 text-slate-400 dark:text-slate-500 shrink-0" />
+      {FILTERS.map(f => (
+        <button
+          key={f}
+          onClick={() => onFilterChange(f)}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+            filter === f 
+              ? "bg-indigo-600 dark:bg-indigo-500 text-white shadow-xs" 
+              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+          }`}
+        >
+          {f === "All" ? "Tutte" : "Oggi"}
+        </button>
+      ))}
+    </>
+  );
+}
+
 // Filter controls component
 export function FilterControls({
   filter,
@@ -58,28 +86,11 @@ export function FilterControls({
   onSortChange: (sort: string) => void;
   onRefresh: () => void;
 }) {
-  const FILTERS = ["All", "Today"];
-
   return (
     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-800 transition-colors">
-      {/* Tutte / Oggi + Ordinamento */}
       <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-        <Filter className="w-5 h-5 text-slate-400 dark:text-slate-500 shrink-0" />
-        {FILTERS.map(f => (
-          <button
-            key={f}
-            onClick={() => onFilterChange(f)}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-              filter === f 
-                ? "bg-indigo-600 dark:bg-indigo-500 text-white shadow-xs" 
-                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-            }`}
-          >
-            {f === "All" ? "Tutte" : "Oggi"}
-          </button>
-        ))}
+        <FilterButtons filter={filter} onFilterChange={onFilterChange} />
 
-        {/* Ordinamento (Più recenti) posizionato subito dopo Oggi */}
         <select
           value={sort}
           onChange={(e) => onSortChange(e.target.value)}

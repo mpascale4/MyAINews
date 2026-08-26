@@ -100,6 +100,80 @@ function ChatMessages({ messages, loading }: ChatMessagesProps) {
   );
 }
 
+interface PendingInterestsListProps {
+  pendingExtracted: PendingInterest[];
+  onRemovePendingInterest: (index: number) => void;
+}
+
+function PendingInterestsList({ pendingExtracted, onRemovePendingInterest }: PendingInterestsListProps) {
+  if (pendingExtracted.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1.5 items-center">
+      <span className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300 mr-1">Interessi:</span>
+      {pendingExtracted.map((item, idx) => (
+        <span
+          key={idx}
+          className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
+            item.type === "negative"
+              ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-200"
+              : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-200"
+          }`}
+        >
+          {item.type === "negative" ? "⛔ " : "⭐ "}
+          {item.keyword}
+          <button
+            type="button"
+            onClick={() => onRemovePendingInterest(idx)}
+            className="hover:opacity-75 cursor-pointer ml-1 text-xs font-bold"
+          >
+            ×
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+interface PendingFeedsListProps {
+  pendingSuggestedFeeds: PendingFeed[];
+  onRemovePendingFeed: (index: number) => void;
+}
+
+function PendingFeedsList({ pendingSuggestedFeeds, onRemovePendingFeed }: PendingFeedsListProps) {
+  if (pendingSuggestedFeeds.length === 0) return null;
+
+  return (
+    <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+      <span className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300 block">
+        Sorgenti RSS Suggerite:
+      </span>
+      {pendingSuggestedFeeds.map((feed, idx) => (
+        <div
+          key={idx}
+          className="bg-white dark:bg-slate-900/90 p-2 rounded-lg border border-emerald-200/80 dark:border-emerald-800/80 flex items-center justify-between text-xs gap-2"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-slate-900 dark:text-slate-100 truncate">{feed.name}</div>
+            {feed.reason && <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{feed.reason}</div>}
+          </div>
+          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 shrink-0">
+            {feed.category || "Generale"}
+          </span>
+          <button
+            type="button"
+            onClick={() => onRemovePendingFeed(idx)}
+            className="text-slate-400 hover:text-rose-500 p-1 cursor-pointer"
+            title="Rimuovi questo feed"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface PendingInterestsPanelProps {
   pendingExtracted: PendingInterest[];
   pendingSuggestedFeeds: PendingFeed[];
@@ -136,61 +210,8 @@ function PendingInterestsPanel({
         </button>
       </div>
 
-      {pendingExtracted.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 items-center">
-          <span className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300 mr-1">Interessi:</span>
-          {pendingExtracted.map((item, idx) => (
-            <span
-              key={idx}
-              className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
-                item.type === "negative"
-                  ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-200"
-                  : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-200"
-              }`}
-            >
-              {item.type === "negative" ? "⛔ " : "⭐ "}
-              {item.keyword}
-              <button
-                type="button"
-                onClick={() => onRemovePendingInterest(idx)}
-                className="hover:opacity-75 cursor-pointer ml-1 text-xs font-bold"
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {pendingSuggestedFeeds.length > 0 && (
-        <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-          <span className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300 block">
-            Sorgenti RSS Suggerite:
-          </span>
-          {pendingSuggestedFeeds.map((feed, idx) => (
-            <div
-              key={idx}
-              className="bg-white dark:bg-slate-900/90 p-2 rounded-lg border border-emerald-200/80 dark:border-emerald-800/80 flex items-center justify-between text-xs gap-2"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="font-semibold text-slate-900 dark:text-slate-100 truncate">{feed.name}</div>
-                {feed.reason && <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{feed.reason}</div>}
-              </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 shrink-0">
-                {feed.category || "Generale"}
-              </span>
-              <button
-                type="button"
-                onClick={() => onRemovePendingFeed(idx)}
-                className="text-slate-400 hover:text-rose-500 p-1 cursor-pointer"
-                title="Rimuovi questo feed"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      <PendingInterestsList pendingExtracted={pendingExtracted} onRemovePendingInterest={onRemovePendingInterest} />
+      <PendingFeedsList pendingSuggestedFeeds={pendingSuggestedFeeds} onRemovePendingFeed={onRemovePendingFeed} />
     </div>
   );
 }

@@ -52,24 +52,39 @@ interface FeedResultItemProps {
   onAdd: (item: SuggestedFeedItem) => void;
 }
 
+function canAddFeed(alreadyAdded: boolean, testState: SuggestedFeedTestResult | undefined): boolean {
+  return !alreadyAdded && !(testState && !testState.loading && !testState.isValidRss && !testState.isScrapeableHtml);
+}
+
+interface FeedItemHeaderProps {
+  item: SuggestedFeedItem;
+  alreadyAdded: boolean;
+}
+
+function FeedItemHeader({ item, alreadyAdded }: FeedItemHeaderProps) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{item.name}</span>
+      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+        {item.category}
+      </span>
+      {alreadyAdded && (
+        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+          <CheckCircle2 className="w-3 h-3" /> Già aggiunta
+        </span>
+      )}
+    </div>
+  );
+}
+
 function FeedResultItem({ item, alreadyAdded, testState, onTest, onAdd }: FeedResultItemProps) {
-  const canAdd = !alreadyAdded && !(testState && !testState.loading && !testState.isValidRss && !testState.isScrapeableHtml);
+  const canAdd = canAddFeed(alreadyAdded, testState);
   
   return (
     <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-indigo-100 dark:border-indigo-900/60 flex flex-col gap-3 shadow-xs">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{item.name}</span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
-              {item.category}
-            </span>
-            {alreadyAdded && (
-              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Già aggiunta
-              </span>
-            )}
-          </div>
+          <FeedItemHeader item={item} alreadyAdded={alreadyAdded} />
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{item.reason}</p>
           <p className="text-[11px] text-slate-400 font-mono truncate mt-1">{item.url}</p>
         </div>
@@ -141,6 +156,37 @@ interface FeedSearchByKeywordProps {
   onAdd: (item: SuggestedFeedItem) => void;
 }
 
+interface ResultsListProps {
+  results: SuggestedFeedItem[];
+  existingFeedUrls: Set<string>;
+  normalizeFeedUrl: (url: string) => string;
+  testResults: Record<string, SuggestedFeedTestResult>;
+  onTest: (url: string) => void;
+  onAdd: (item: SuggestedFeedItem) => void;
+}
+
+function ResultsList({ results, existingFeedUrls, normalizeFeedUrl, testResults, onTest, onAdd }: ResultsListProps) {
+  return (
+    <div className="mt-4 space-y-2.5">
+      <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+        Risultati Trovati dall'AI (Clicca per aggiungere come manuale):
+      </span>
+      <div className="space-y-2">
+        {results.map((item, idx) => (
+          <FeedResultItem
+            key={idx}
+            item={item}
+            alreadyAdded={existingFeedUrls.has(normalizeFeedUrl(item.url))}
+            testState={testResults[item.url]}
+            onTest={onTest}
+            onAdd={onAdd}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function FeedSearchByKeyword({
   keyword,
   onKeywordChange,
@@ -171,23 +217,14 @@ export default function FeedSearchByKeyword({
         </div>
       )}
       {results.length > 0 && (
-        <div className="mt-4 space-y-2.5">
-          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-            Risultati Trovati dall'AI (Clicca per aggiungere come manuale):
-          </span>
-          <div className="space-y-2">
-            {results.map((item, idx) => (
-              <FeedResultItem
-                key={idx}
-                item={item}
-                alreadyAdded={existingFeedUrls.has(normalizeFeedUrl(item.url))}
-                testState={testResults[item.url]}
-                onTest={onTest}
-                onAdd={onAdd}
-              />
-            ))}
-          </div>
-        </div>
+        <ResultsList
+          results={results}
+          existingFeedUrls={existingFeedUrls}
+          normalizeFeedUrl={normalizeFeedUrl}
+          testResults={testResults}
+          onTest={onTest}
+          onAdd={onAdd}
+        />
       )}
     </div>
   );

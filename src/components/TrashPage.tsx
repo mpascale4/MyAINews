@@ -65,31 +65,30 @@ function TrashGrid({ articles, restoringId, onRestore }: TrashGridProps) {
   );
 }
 
+async function fetchTrashArticles(): Promise<Article[]> {
+  try {
+    const res = await fetch("/api/articles/trash");
+    if (res.ok) {
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    }
+    return [];
+  } catch (err) {
+    console.error("Error loading trash:", err);
+    return [];
+  }
+}
+
 export default function TrashPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoringId, setRestoringId] = useState<number | null>(null);
 
-  const fetchTrash = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/articles/trash");
-      if (res.ok) {
-        const data = await res.json();
-        setArticles(Array.isArray(data) ? data : []);
-      } else {
-        setArticles([]);
-      }
-    } catch (err) {
-      console.error("Error loading trash:", err);
-      setArticles([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchTrash();
+    fetchTrashArticles().then(data => {
+      setArticles(data);
+      setLoading(false);
+    });
   }, []);
 
   const handleRestore = async (id: number) => {
@@ -115,11 +114,7 @@ export default function TrashPage() {
   return (
     <div className="space-y-6">
       <TrashHeader articleCount={articles.length} />
-      {articles.length === 0 ? (
-        <EmptyTrash />
-      ) : (
-        <TrashGrid articles={articles} restoringId={restoringId} onRestore={handleRestore} />
-      )}
+      {articles.length === 0 ? <EmptyTrash /> : <TrashGrid articles={articles} restoringId={restoringId} onRestore={handleRestore} />}
     </div>
   );
 }

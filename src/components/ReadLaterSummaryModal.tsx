@@ -140,6 +140,67 @@ function ModalContent({ article, isRegenerating, summaryError, onMarkAsRead }: M
   );
 }
 
+interface FooterActionsProps {
+  article: Article;
+  isRegenerating: boolean;
+  onToggleSave: (article: Article) => void;
+  onShare: (article: Article) => void;
+  onRegenerate: (id: number) => void;
+  onClose: () => void;
+  onMarkAsRead: (article: Article) => void;
+}
+
+function FooterActions({
+  article,
+  isRegenerating,
+  onToggleSave,
+  onShare,
+  onRegenerate,
+  onClose,
+  onMarkAsRead,
+}: FooterActionsProps) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <button
+        onClick={() => onToggleSave(article)}
+        className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 font-medium rounded-xl text-sm transition-colors cursor-pointer"
+        title="Rimuovi dai salvati"
+      >
+        <BookmarkCheck className="w-4 h-4 fill-amber-500" />
+        <span>Salvato</span>
+      </button>
+      <button
+        onClick={() => onShare(article)}
+        className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium rounded-xl text-sm transition-colors cursor-pointer"
+        title="Condividi notizia e riassunto"
+      >
+        <Share2 className="w-4 h-4" />
+        <span>Condividi</span>
+      </button>
+      <button
+        onClick={() => onRegenerate(article.id)}
+        disabled={isRegenerating}
+        className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium rounded-xl text-sm transition-colors disabled:opacity-50 cursor-pointer"
+      >
+        <RefreshCw className={`w-4 h-4 ${isRegenerating ? "animate-spin" : ""}`} />
+        Rigenera
+      </button>
+      <button onClick={onClose} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-medium rounded-xl text-sm transition-colors cursor-pointer">
+        Chiudi
+      </button>
+      <a
+        href={article.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => { onMarkAsRead(article); onClose(); }}
+        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-sm transition-colors shadow-xs"
+      >
+        Fonte originale <ExternalLink className="w-4 h-4" />
+      </a>
+    </div>
+  );
+}
+
 interface ModalFooterProps {
   article: Article;
   isRegenerating: boolean;
@@ -168,50 +229,15 @@ function ModalFooter({
           </span>
         )}
       </div>
-      <div className="flex items-center gap-2.5">
-        <button
-          onClick={() => onToggleSave(article)}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 font-medium rounded-xl text-sm transition-colors cursor-pointer"
-          title="Rimuovi dai salvati"
-        >
-          <BookmarkCheck className="w-4 h-4 fill-amber-500" />
-          <span>Salvato</span>
-        </button>
-        <button
-          onClick={() => onShare(article)}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium rounded-xl text-sm transition-colors cursor-pointer"
-          title="Condividi notizia e riassunto"
-        >
-          <Share2 className="w-4 h-4" />
-          <span>Condividi</span>
-        </button>
-        <button
-          onClick={() => onRegenerate(article.id)}
-          disabled={isRegenerating}
-          className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium rounded-xl text-sm transition-colors disabled:opacity-50 cursor-pointer"
-        >
-          <RefreshCw className={`w-4 h-4 ${isRegenerating ? "animate-spin" : ""}`} />
-          Rigenera
-        </button>
-        <button
-          onClick={onClose}
-          className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-medium rounded-xl text-sm transition-colors cursor-pointer"
-        >
-          Chiudi
-        </button>
-        <a
-          href={article.link}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={() => {
-            onMarkAsRead(article);
-            onClose();
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-sm transition-colors shadow-xs"
-        >
-          Fonte originale <ExternalLink className="w-4 h-4" />
-        </a>
-      </div>
+      <FooterActions
+        article={article}
+        isRegenerating={isRegenerating}
+        onToggleSave={onToggleSave}
+        onShare={onShare}
+        onRegenerate={onRegenerate}
+        onClose={onClose}
+        onMarkAsRead={onMarkAsRead}
+      />
     </div>
   );
 }
