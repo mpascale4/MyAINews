@@ -1,10 +1,11 @@
-import { Loader2, RefreshCw, Rss } from "lucide-react";
+import { Loader2, Menu, RefreshCw, Rss } from "lucide-react";
+import { useState } from "react";
 import { shareArticle } from "../lib/shareArticleHelper";
 import ArticleCardItem from "./ArticleCardItem";
 import ArticleInfoModal from "./ArticleInfoModal";
 import ArticleSummaryModal from "./ArticleSummaryModal";
 import { useArticlesFeed, useArticleSummary } from "./articlesListHooks";
-import SourceSelectorBar from "./SourceSelectorBar";
+import SourceSelectorOverlay from "./SourceSelectorOverlay";
 
 function EmptyState() {
   return (
@@ -73,13 +74,27 @@ function ArticlesOverlay({
   );
 }
 
-function ArticlesHeader({ feedState }: { feedState: ReturnType<typeof useArticlesFeed> }) {
+function ArticlesHeader({ feedState, onOpenSourceMenu }: { feedState: ReturnType<typeof useArticlesFeed>; onOpenSourceMenu: () => void }) {
   const isBusy = feedState.loading || feedState.refreshing;
+  const hasMultipleSources = feedState.feeds.length > 1;
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Notizie</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Articoli caricati in tempo reale dai feed configurati.</p>
+      <div className="flex items-center gap-3">
+        {hasMultipleSources ? (
+          <button
+            type="button"
+            onClick={onOpenSourceMenu}
+            aria-label="Filtra per sorgente"
+            title="Filtra per sorgente"
+            className="inline-flex shrink-0 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white p-2.5 text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        ) : null}
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Notizie</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Articoli caricati in tempo reale dai feed configurati.</p>
+        </div>
       </div>
       <button type="button" onClick={() => void feedState.load(true)} disabled={isBusy} className={`inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 ${isBusy ? "" : "cursor-pointer"}`}>
         {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -89,31 +104,19 @@ function ArticlesHeader({ feedState }: { feedState: ReturnType<typeof useArticle
   );
 }
 
-export default function ArticlesList() {
-  const feedState = useArticlesFeed();
-  const summaryState = useArticleSummary(feedState.setArticles, feedState.visibleArticles);
-  const showEmptyState = !feedState.loading && feedState.feeds.length === 0;
-  const showLoadingState = feedState.loading;
-  const showLoadMore = feedState.articles.length > feedState.visibleCount;
-
-  if (showEmptyState) {
-    return <EmptyState />;
-  }
-
+function ArticlesAllOverlays({
+  summaryState,
+  feedState,
+  isSourceMenuOpen,
+  onCloseSourceMenu,
+}: {
+  summaryState: ReturnType<typeof useArticleSummary>;
+  feedState: ReturnType<typeof useArticlesFeed>;
+  isSourceMenuOpen: boolean;
+  onCloseSourceMenu: () => void;
+}) {
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <ArticlesHeader feedState={feedState} />
-      {feedState.errors.length > 0 ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">{feedState.errors.map((error) => <p key={error}>{error}</p>)}</div> : null}
-      {feedState.feeds.length > 0 ? <SourceSelectorBar feeds={feedState.feeds} selectedSource={feedState.selectedSource} onSelectSource={feedState.setSelectedSource} /> : null}
-      {showLoadingState ? (
-        <div className="flex items-center justify-center py-16 text-slate-500 dark:text-slate-400">
-          <Loader2 className="mr-3 h-5 w-5 animate-spin" />
-          Caricamento notizie...
-        </div>
-      ) : (
-        <ArticlesGrid visibleArticles={feedState.visibleArticles} onOpenSummary={summaryState.handleOpenSummary} onOpenInfo={summaryState.setInfoArticle} />
-      )}
-      {showLoadMore ? <button type="button" onClick={() => feedState.setVisibleCount((count) => count + 24)} className="mx-auto block cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">Mostra altre notizie</button> : null}
+    <>
       <ArticlesOverlay
         selectedArticle={summaryState.selectedArticle}
         isRegenerating={summaryState.isRegenerating}
@@ -130,6 +133,49 @@ export default function ArticlesList() {
         summaryIndex={summaryState.summaryIndex}
         summaryCount={feedState.visibleArticles.length}
         onNavigateSummary={summaryState.navigateSummary}
+      />
+      {isSourceMenuOpen ? (
+        <SourceSelectorOverlay
+          feeds={feedState.feeds}
+          selectedSource={feedState.selectedSource}
+          onSelectSource={feedState.setSelectedSource}
+          onClose={onCloseSourceMenu}
+        />
+      ) : null}
+    </>
+  );
+}
+
+export default function ArticlesList() {
+  const feedState = useArticlesFeed();
+  const summaryState = useArticleSummary(feedState.setArticles, feedState.visibleArticles);
+  const [isSourceMenuOpen, setIsSourceMenuOpen] = useState(false);
+  const showEmptyState = !feedState.loading && feedState.feeds.length === 0;
+  const showLoadingState = feedState.loading;
+  const showLoadMore = feedState.articles.length > feedState.visibleCount;
+
+  if (showEmptyState) {
+    return <EmptyState />;
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6">
+      <ArticlesHeader feedState={feedState} onOpenSourceMenu={() => setIsSourceMenuOpen(true)} />
+      {feedState.errors.length > 0 ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">{feedState.errors.map((error) => <p key={error}>{error}</p>)}</div> : null}
+      {showLoadingState ? (
+        <div className="flex items-center justify-center py-16 text-slate-500 dark:text-slate-400">
+          <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+          Caricamento notizie...
+        </div>
+      ) : (
+        <ArticlesGrid visibleArticles={feedState.visibleArticles} onOpenSummary={summaryState.handleOpenSummary} onOpenInfo={summaryState.setInfoArticle} />
+      )}
+      {showLoadMore ? <button type="button" onClick={() => feedState.setVisibleCount((count) => count + 24)} className="mx-auto block cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">Mostra altre notizie</button> : null}
+      <ArticlesAllOverlays
+        summaryState={summaryState}
+        feedState={feedState}
+        isSourceMenuOpen={isSourceMenuOpen}
+        onCloseSourceMenu={() => setIsSourceMenuOpen(false)}
       />
     </div>
   );
