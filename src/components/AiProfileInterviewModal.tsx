@@ -46,7 +46,7 @@ function ModalHeader({ onClose }: ModalHeaderProps) {
         </div>
         <div>
           <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg">Intervista AI per Profilo e Interessi</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Parla con l'assistente per scoprire e aggiornare i tuoi argomenti
           </p>
         </div>
@@ -89,7 +89,7 @@ function ChatMessages({ messages, loading }: ChatMessagesProps) {
       ))}
 
       {loading && (
-        <div className="flex gap-3 items-center text-slate-400 text-xs italic">
+        <div className="flex gap-3 items-center text-slate-400 text-sm italic">
           <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
             <Loader2 className="w-4 h-4 animate-spin" />
           </div>
@@ -110,11 +110,11 @@ function PendingInterestsList({ pendingExtracted, onRemovePendingInterest }: Pen
 
   return (
     <div className="flex flex-wrap gap-1.5 items-center">
-      <span className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300 mr-1">Interessi:</span>
+      <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300 mr-1">Interessi:</span>
       {pendingExtracted.map((item, idx) => (
         <span
           key={idx}
-          className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
+          className={`inline-flex items-center gap-1 text-sm font-semibold px-2.5 py-0.5 rounded-full border ${
             item.type === "negative"
               ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-200"
               : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-200"
@@ -125,7 +125,7 @@ function PendingInterestsList({ pendingExtracted, onRemovePendingInterest }: Pen
           <button
             type="button"
             onClick={() => onRemovePendingInterest(idx)}
-            className="hover:opacity-75 cursor-pointer ml-1 text-xs font-bold"
+            className="hover:opacity-75 cursor-pointer ml-1 text-sm font-bold"
           >
             ×
           </button>
@@ -145,19 +145,19 @@ function PendingFeedsList({ pendingSuggestedFeeds, onRemovePendingFeed }: Pendin
 
   return (
     <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-      <span className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300 block">
+      <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300 block">
         Sorgenti RSS Suggerite:
       </span>
       {pendingSuggestedFeeds.map((feed, idx) => (
         <div
           key={idx}
-          className="bg-white dark:bg-slate-900/90 p-2 rounded-lg border border-emerald-200/80 dark:border-emerald-800/80 flex items-center justify-between text-xs gap-2"
+          className="bg-white dark:bg-slate-900/90 p-2 rounded-lg border border-emerald-200/80 dark:border-emerald-800/80 flex items-center justify-between text-sm gap-2"
         >
           <div className="min-w-0 flex-1">
             <div className="font-semibold text-slate-900 dark:text-slate-100 truncate">{feed.name}</div>
-            {feed.reason && <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{feed.reason}</div>}
+            {feed.reason && <div className="text-sm text-slate-500 dark:text-slate-400 truncate">{feed.reason}</div>}
           </div>
-          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 shrink-0">
+          <span className="px-2 py-0.5 rounded text-sm font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 shrink-0">
             {feed.category || "Generale"}
           </span>
           <button
@@ -198,13 +198,13 @@ function PendingInterestsPanel({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
+          <span className="text-sm font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
             Risultati Rilevati dall'AI ({pendingExtracted.length} Interessi, {pendingSuggestedFeeds.length} Feed)
           </span>
         </div>
         <button
           onClick={onApplyExtracted}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer shrink-0 flex items-center gap-1.5"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md cursor-pointer shrink-0 flex items-center gap-1.5"
         >
           <Check className="w-4 h-4" /> Applica al Profilo e Aggiungi Feed
         </button>

@@ -135,7 +135,7 @@ function DesktopSidebar({ activeTab, onTabChange, theme, toggleTheme }: DesktopS
             )}
             <span>{theme === "dark" ? "Tema Scuro" : "Tema Chiaro"}</span>
           </span>
-          <span className="text-[11px] px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
+          <span className="text-sm px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
             {theme === "dark" ? "Scuro" : "Chiaro"}
           </span>
         </button>
@@ -161,7 +161,7 @@ function MobileNavButton({ activeTab, targetTab, icon, label, onTabChange }: Mob
       }`}
     >
       {icon}
-      <span className="text-[10px] font-medium">{label}</span>
+      <span className="text-sm font-medium">{label}</span>
     </button>
   );
 }
@@ -218,7 +218,7 @@ function AppHeader({ activeTab, notifications, theme, toggleTheme }: AppHeaderPr
        </div>
        <div className="flex items-center gap-3">
           {notifications.length > 0 && (
-             <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/50 px-3 py-1.5 rounded-full text-xs font-medium">
+             <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/50 px-3 py-1.5 rounded-full text-sm font-medium">
                 <Bell className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{notifications[0]}</span>
                 <span className="sm:hidden">Notizie</span>

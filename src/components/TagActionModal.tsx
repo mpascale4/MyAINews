@@ -99,7 +99,7 @@ interface SearchResultsListProps {
 function SearchResultsList({ searchResults, allAddedFeeds, onAddFeed }: SearchResultsListProps) {
   return (
     <div className="space-y-3">
-      <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+      <h4 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
         Sorgenti consigliate trovate:
       </h4>
       <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
@@ -111,17 +111,17 @@ function SearchResultsList({ searchResults, allAddedFeeds, onAddFeed }: SearchRe
               className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 shadow-3xs"
             >
               <div className="min-w-0 flex-1">
-                <span className="font-bold text-xs text-slate-900 dark:text-slate-100 block truncate">
+                <span className="font-bold text-sm text-slate-900 dark:text-slate-100 block truncate">
                   {feed.name}
                 </span>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5 truncate">
+                <span className="text-sm text-slate-500 dark:text-slate-400 block mt-0.5 truncate">
                   {feed.reason || feed.category || "Feed correlato"}
                 </span>
               </div>
               <button
                 onClick={() => onAddFeed(feed)}
                 disabled={isAdded}
-                className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-3xs cursor-pointer flex items-center gap-1 ${
+                className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all shadow-3xs cursor-pointer flex items-center gap-1 ${
                   isAdded
                     ? "bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-300"
                     : "bg-indigo-600 hover:bg-indigo-700 text-white"
@@ -203,7 +203,7 @@ function ModalContentSection({
       {searchLoading && <SearchLoading tag={tag} />}
 
       {searchFeedback && (
-        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-2">
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300 rounded-xl text-sm font-semibold flex items-center gap-2">
           <Check className="w-4 h-4" />
           <span>{searchFeedback}</span>
         </div>

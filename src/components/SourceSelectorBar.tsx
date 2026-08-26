@@ -23,7 +23,7 @@ function AllSourcesButton({ isSelected, onSelectSource }: AllSourcesButtonProps)
   return (
     <button
       onClick={() => onSelectSource("")}
-      className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 border shrink-0 ${
+      className={`px-2.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 border shrink-0 ${
         isSelected
           ? "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-400/40"
           : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80"
@@ -49,7 +49,7 @@ function SourcePillButton({ feed, isSelected, onSelectSource }: SourcePillButton
     <button
       key={feed.name}
       onClick={() => onSelectSource(isSelected ? "" : feed.name)}
-      className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-start gap-1.5 border shrink-0 ${
+      className={`px-2.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-start gap-1.5 border shrink-0 ${
         isSelected
           ? "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-400/40"
           : `${accent.bg} ${accent.text} border-transparent hover:opacity-80`
@@ -60,14 +60,14 @@ function SourcePillButton({ feed, isSelected, onSelectSource }: SourcePillButton
         className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${isSelected ? "bg-white/20" : "bg-white/40 dark:bg-black/20"}`}
         aria-hidden="true"
       >
-        <span className={`text-[9px] font-black ${isSelected ? "text-white" : accent.text}`}>
+        <span className={`text-sm font-black ${isSelected ? "text-white" : accent.text}`}>
           {getSourceInitial(feed.name)}
         </span>
       </span>
       <span className="flex flex-col items-start gap-0">
         {feed.addedVia && (
           <span
-            className={`text-[9px] font-normal opacity-70 truncate max-w-[160px] leading-none ${
+            className={`text-sm font-normal opacity-70 truncate max-w-[160px] leading-none ${
               isSelected ? "text-indigo-100" : accent.text
             }`}
           >
