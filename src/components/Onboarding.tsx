@@ -3,41 +3,33 @@ import { OnboardingHeader } from "./OnboardingHeader";
 import { OnboardingSearchColumn } from "./OnboardingSearchColumn";
 import { OnboardingSelectedPanel } from "./OnboardingSelectedPanel";
 
-interface OnboardingProps {
+type OnboardingProps = {
   onComplete: () => void;
-}
+};
 
 export default function Onboarding({ onComplete }: OnboardingProps) {
-  const {
-    searchKeyword,
-    setSearchKeyword,
-    searchResults,
-    searchLoading,
-    searchError,
-    suggestedFeeds,
-    finishing,
-    handleSearch,
-    addFeed,
-    removeFeed,
-    handleFinish,
-  } = useOnboardingFeeds(onComplete);
+  const controller = useOnboardingFeeds(onComplete);
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 transition-colors">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-5xl overflow-hidden flex flex-col h-[90vh] md:h-[80vh] transition-colors">
-        <OnboardingHeader finishing={finishing} onFinish={handleFinish} />
-
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 bg-slate-50 dark:bg-slate-950/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+      <div className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+        <OnboardingHeader finishing={controller.finishing} onFinish={controller.handleFinish} />
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           <OnboardingSearchColumn
-            searchKeyword={searchKeyword}
-            setSearchKeyword={setSearchKeyword}
-            searchResults={searchResults}
-            searchLoading={searchLoading}
-            searchError={searchError}
-            onSearch={handleSearch}
-            onAddFeed={addFeed}
+            searchKeyword={controller.searchKeyword}
+            setSearchKeyword={controller.setSearchKeyword}
+            manualName={controller.manualName}
+            setManualName={controller.setManualName}
+            manualUrl={controller.manualUrl}
+            setManualUrl={controller.setManualUrl}
+            searchResults={controller.searchResults}
+            searchLoading={controller.searchLoading}
+            searchError={controller.searchError}
+            onSearch={controller.handleSearch}
+            onAddFeed={controller.addFeed}
+            onAddManualFeed={controller.addManualFeed}
           />
-          <OnboardingSelectedPanel suggestedFeeds={suggestedFeeds} onRemoveFeed={removeFeed} />
+          <OnboardingSelectedPanel selectedFeeds={controller.selectedFeeds} onRemoveFeed={controller.removeFeed} />
         </div>
       </div>
     </div>

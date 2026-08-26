@@ -15,15 +15,12 @@
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
-    "@libsql/client": "^0.17.4",
     "@mp/app-kit": "file:../mp-app-kit",
     "@tailwindcss/vite": "^4.1.14",
-    "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^5.0.4",
     "cheerio": "^1.2.0",
     "date-fns": "^4.4.0",
     "dotenv": "^17.2.3",
-    "drizzle-orm": "^0.45.2",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
@@ -31,14 +28,12 @@
     "react-dom": "^19.0.1",
     "recharts": "^3.10.1",
     "rss-parser": "^3.13.0",
-    "vite": "^6.2.3",
-    "web-push": "^3.6.7"
+    "vite": "^6.2.3"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
-    "drizzle-kit": "^0.31.10",
     "esbuild": "^0.25.0",
     "eslint": "^10.9.0",
     "png-to-ico": "^3.0.2",

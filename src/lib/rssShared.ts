@@ -13,35 +13,7 @@ export type ParserItem = {
   content?: string;
   contentSnippet?: string;
   pubDate?: string;
-  imageUrl?: string | null;
   mediaContent?: Array<{ $?: { url?: string } }>;
-};
-
-export type FeedTestSampleItem = {
-  title?: string;
-  link?: string;
-};
-
-export type InterestRow = { keyword: string; type: string; weight: number };
-export type ExistingArticleRow = { guid: string; title: string | null; link: string | null };
-export type FeedProcessContext = {
-  existingGuids: Set<string>;
-  existingTitles: Set<string>;
-  existingLinks: Set<string>;
-  userInterests: InterestRow[];
-};
-
-export type PreparedArticle = {
-  guid: string;
-  title: string;
-  link: string;
-  normTitle: string;
-  normLink: string;
-  content: string;
-  pubDate: string;
-  imageUrl: string | null;
-  defaultTags: string[];
-  relevance: number;
 };
 
 export type FeedUrlTestResult = {
@@ -49,7 +21,7 @@ export type FeedUrlTestResult = {
   isScrapeableHtml: boolean;
   detectedName?: string;
   itemCount?: number;
-  sampleItems?: FeedTestSampleItem[];
+  sampleItems?: Array<{ title?: string; link?: string }>;
   transformerCreated?: boolean;
   error?: string;
 };
@@ -59,8 +31,8 @@ export function getErrorMessage(error: unknown): string {
 }
 
 export function isLikelyXmlFeed(text: string): boolean {
-  const trimmed = text.trim();
-  return trimmed.length > 100 && !trimmed.startsWith("<!DOCTYPE html") && !trimmed.startsWith("<html");
+  const trimmed = text.trim().toLowerCase();
+  return trimmed.length > 100 && !trimmed.startsWith("<!doctype html") && !trimmed.startsWith("<html");
 }
 
 export const DEFAULT_HEADERS = {
@@ -68,16 +40,16 @@ export const DEFAULT_HEADERS = {
   Accept: "application/rss+xml, application/xml, application/atom+xml, text/xml, text/html;q=0.9, */*;q=0.8",
   "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
   "Cache-Control": "no-cache",
-  Pragma: "no-cache"
+  Pragma: "no-cache",
 } as const;
 
-export const parser = new Parser({
+export const parser = new Parser<unknown, ParserItem>({
   headers: DEFAULT_HEADERS,
   timeout: 15000,
   customFields: {
     item: [
       ["media:content", "mediaContent", { keepArray: true }],
-      ["content:encoded", "contentEncoded"]
-    ]
-  }
+      ["content:encoded", "contentEncoded"],
+    ],
+  },
 });
